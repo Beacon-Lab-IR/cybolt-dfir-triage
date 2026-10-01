@@ -1,8 +1,7 @@
 # KAPE-MEDIA Releases
 
-Repositorio de binarios release de [KAPE-MEDIA](../). Contiene los
-archivos `.iso` finales que NO se commitean al repo principal (por
-limite de 100 MB de GitHub) y se distribuyen via GitHub Releases.
+Los `.iso` finales NO se commitean al tree (limite 100 MB de GitHub) y se
+distribuyen como assets de [GitHub Releases](https://github.com/Beacon-Lab-IR/kape-media/releases).
 
 ## Que hay aca
 
@@ -11,13 +10,10 @@ Cada release es un tag `v<VERSION>` con el ISO adjunto:
 ```
 v5.2.18  -> KAPE-MEDIA-v5.2.18.iso  (561 MiB)
 v5.2.17  -> KAPE-MEDIA-v5.2.17.iso
-v5.2.16  -> KAPE-MEDIA-v5.2.16.iso
 ...
 ```
 
-## Como descargar un release
-
-Desde la linea de comandos:
+## Como descargar
 
 ```bash
 # Ultimo release
@@ -26,84 +22,62 @@ gh release download --repo Beacon-Lab-IR/kape-media
 # Release especifico
 gh release download v5.2.18 --repo Beacon-Lab-IR/kape-media
 
-# Archivo especifico a un directorio
+# A un directorio
 gh release download v5.2.18 \
     --repo Beacon-Lab-IR/kape-media \
     --pattern "KAPE-MEDIA-*.iso" \
     --dir /tmp/
 ```
 
-O desde la web: https://github.com/Beacon-Lab-IR/kape-media/releases/latest
+Web: https://github.com/Beacon-Lab-IR/kape-media/releases/latest
 
-## Como se publica un release
+## Como publicar un release
 
-### Opcion A: Manual con gh CLI
+### Opcion A: Manual con gh CLI (recomendado)
 
-Desde el repo principal de codigo, despues de compilar y generar el ISO:
+`staging/` (incluye `Tools/kape.zip` ~553 MB) no esta en git. Genera el ISO
+en tu maquina y subilo como Release:
 
 ```bash
-cd /path/to/kape-media-repo
+cd /path/to/kape-media
 
-# Compilar
-dotnet build KapeUi/KapeUi.csproj -c Release
-dotnet build RamCaptureUi/RamCaptureUi.csproj -c Release
+./build.sh 5.2.19
 
-# Generar ISO
-./scripts/build.sh  # o build.sh equivalente en macOS/Linux
-
-# Tag + push al repo de codigo
-git tag v5.2.18
-git push origin v5.2.18
-
-# Subir ISO como Release al repo de binarios
-gh release create v5.2.18 \
+gh release create v5.2.19 \
     --repo Beacon-Lab-IR/kape-media \
-    --target main \
-    --title "KAPE-MEDIA v5.2.18" \
-    --notes-file RELEASE-NOTES.md \
-    dist/KAPE-MEDIA-v5.2.18.iso
+    --title "KAPE-MEDIA v5.2.19" \
+    --notes "Ver RELEASES-README / README" \
+    dist/KAPE-MEDIA-v5.2.19.iso
 ```
 
-### Opcion B: Automatico con GitHub Actions (recomendado)
+### Opcion B: GitHub Actions
 
-Este repo tiene un workflow en `.github/workflows/release.yml` que detecta
-tags `v*` en el repo de codigo, compila, genera el ISO, y crea el release
-automaticamente.
+Hay un workflow en `.github/workflows/release.yml` (tag `v*` o
+`workflow_dispatch`). Compila las GUIs, descarga winpmem y publica el
+Release en este mismo repo con `GITHUB_TOKEN`.
 
-Para activarlo:
-
-1. En el repo principal `kape-media`, ir a Settings -> Secrets and variables
-   -> Actions -> New repository secret.
-2. Crear dos secrets:
-   - `BEACONLAB_RELEASES_TOKEN`: un GitHub PAT con scope `repo` (solo
-     sobre `Beacon-Lab-IR/kape-media`).
-   - `BEACONLAB_RELEASES_REPO`: `Beacon-Lab-IR/kape-media`
-3. Cada vez que se pushee un tag `v*` al repo principal, el workflow:
-   - Compila las dos GUIs.
-   - Genera el ISO con `hdiutil makehybrid` o `genisoimage`.
-   - Calcula SHA-256.
-   - Clona el repo de releases y sube el ISO como binario.
-   - Crea el Release en `Beacon-Lab-IR/kape-media` con las notas.
+**Limitacion:** en `ubuntu-latest` falla si `staging/` no esta completo
+(falta `kape.exe`, `Tools/kape.zip`, etc.). Solo sirve tal cual en un
+runner que ya tenga ese staging, o cuando se agregue un paso para
+restaurarlo. Hasta entonces, usa la opcion A.
 
 ## Como verificar integridad
 
 ```bash
-# Descargar ISO y SHA-256 companion
 gh release download v5.2.18 \
     --repo Beacon-Lab-IR/kape-media \
-    --pattern "KAPE-MEDIA-*" \
+    --pattern "KAPE-MEDIA-*.iso" \
     --dir /tmp/kape-media-v5.2.18/
 
-# Verificar
 cd /tmp/kape-media-v5.2.18/
-shasum -a 256 -c SHA256SUMS.txt
+shasum -a 256 KAPE-MEDIA-v5.2.18.iso
+# comparar con el SHA-256 de las notas del Release
 ```
 
-Si la verificacion falla, NO uses el ISO. Reportar el SHA-256 esperado
-vs obtenido al equipo IR.
+Si no coincide, NO uses el ISO.
 
 ## Por que Releases y no el tree
 
-- El tree de `kape-media` tiene solo codigo fuente (~pocos MB). Clonar es rapido.
-- Los `.iso` (~560 MB) van como assets de GitHub Releases (<2 GB por archivo).
-- Asi el historial de git no se infla y bajar un ISO no requiere clonar el repo.
+- El tree tiene solo codigo fuente (~pocos MB). Clonar es rapido.
+- Los `.iso` (~560 MB) van como assets de Releases (<2 GB por archivo).
+- El historial de git no se infla y bajar un ISO no requiere clonar.

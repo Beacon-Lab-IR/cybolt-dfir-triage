@@ -1,9 +1,13 @@
 name: Build ISO and publish release
 
-# Este workflow se dispara cuando se pushea un tag v* al repo principal.
-# Compila las dos GUIs, genera el ISO, calcula SHA-256, y crea un Release
-# en el repo de binarios (BeaconLab-IR/kape-media-releases) con el ISO
-# adjunto y el SHA-256 en las notas.
+# Se dispara con tag v* o manualmente (workflow_dispatch).
+# Compila las GUIs, genera el ISO desde staging/, calcula SHA-256
+# y crea el Release en este mismo repo (Beacon-Lab-IR/kape-media).
+#
+# Nota: staging/ (Tools/kape.zip, etc.) NO esta en git. Este workflow
+# solo produce un ISO completo si el runner ya tiene staging poblado
+# (p.ej. self-hosted) o si se amplía el job para restaurar ese cache.
+# Flujo recomendado hoy: ./build.sh <ver> + gh release create (manual).
 
 on:
   push:
@@ -12,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version a publicar (ej: 5.2.18)'
+        description: 'Version a publicar (ej: 5.2.19)'
         required: true
         type: string
 
@@ -34,6 +38,17 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Extraer version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building v$VERSION"
 
       - name: Compilar KAPE_TRIAGE_UI
         run: |
@@ -64,27 +79,42 @@ jobs:
           fi
           echo "winpmem OK: $actual"
 
-      - name: Extraer version del tag
-        id: get_version
+      - name: Verificar staging completo
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
+          missing=0
+          for f in staging/kape.exe staging/MANUAL_OPERATIVO.txt staging/Tools/kape.zip; do
+            if [ ! -e "$f" ]; then
+              echo "FALTA: $f"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "ERROR: staging/ incompleto en el runner."
+            echo "Este repo no versiona Tools/kape.zip ni el resto de staging/."
+            echo "Publica el ISO desde tu maquina:"
+            echo "  ./build.sh ${{ steps.get_version.outputs.VERSION }}"
+            echo "  gh release create v${{ steps.get_version.outputs.VERSION }} \\"
+            echo "    --repo Beacon-Lab-IR/kape-media \\"
+            echo "    --title \"KAPE-MEDIA v${{ steps.get_version.outputs.VERSION }}\" \\"
+            echo "    --notes-file - \\"
+            echo "    dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
+            exit 1
           fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building v$VERSION"
+          echo "staging OK"
 
       - name: Instalar herramientas de build ISO
         run: |
           sudo apt-get update
-          sudo apt-get install -y genisoimage xorriso
+          sudo apt-get install -y genisoimage
 
       - name: Generar ISO
         run: |
-          ISO_NAME="KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          ISO_NAME="KAPE-MEDIA-v${VERSION}.iso"
+          mkdir -p dist
           genisoimage -R -J -joliet-long \
-            -V "KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}" \
+            -V "KAPE-MEDIA-v${VERSION}" \
             -o "dist/$ISO_NAME" \
             staging/
           ls -lh "dist/$ISO_NAME"
@@ -92,31 +122,32 @@ jobs:
       - name: Calcular SHA-256 del ISO
         id: hash
         run: |
-          ISO_NAME="KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          ISO_NAME="KAPE-MEDIA-v${VERSION}.iso"
           ISO_SHA=$(sha256sum "dist/$ISO_NAME" | awk '{print $1}')
-          echo "ISO_SHA=$ISO_SHA" >> $GITHUB_OUTPUT
-          echo "ISO size: $(stat -c%s dist/$ISO_NAME) bytes"
+          echo "ISO_SHA=$ISO_SHA" >> "$GITHUB_OUTPUT"
+          echo "ISO size: $(stat -c%s "dist/$ISO_NAME") bytes"
           echo "ISO SHA-256: $ISO_SHA"
 
-      - name: Crear Release en repo de binarios
+      - name: Crear Release
         env:
-          GH_TOKEN: ${{ secrets.BEACONLAB_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
           ISO_SHA: ${{ steps.hash.outputs.ISO_SHA }}
           ISO_PATH: dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso
         run: |
           NOTES=$(cat <<EOF
-          ## KAPE-MEDIA v${VERSION}
-
           ISO no-booteable para adquisicion DFIR sobre VMware/Proxmox.
 
-          ### Instalacion
-          1. Subir a datastore del hipervisor (vCenter Web UI o API).
+          ## Instalacion
+
+          1. Subir a datastore del hipervisor (vCenter Web UI o Proxmox).
           2. Adjuntar como CD-ROM en la VM objetivo (sin red).
           3. Ejecutar \`RAM_CAPTURE_UI.exe\` y luego \`KAPE_TRIAGE_UI.exe\`.
           4. Apagar VM, mover DFIR-OUTPUT.vmdk a la siguiente VM o VM de analisis.
 
-          ### Verificacion de integridad
+          ## Verificacion de integridad
+
           SHA-256 del ISO:
 
           \`\`\`
@@ -124,29 +155,29 @@ jobs:
           \`\`\`
 
           Verificar con:
+
           \`\`\`bash
           shasum -a 256 KAPE-MEDIA-v${VERSION}.iso
           \`\`\`
 
-          Ver README.md para instrucciones completas.
+          Codigo fuente: https://github.com/Beacon-Lab-IR/kape-media
 
           By Cybolt, MIT License.
           EOF
           )
           gh release create "v${VERSION}" \
-            --repo "${{ secrets.BEACONLAB_RELEASES_REPO }}" \
+            --repo "${{ github.repository }}" \
             --title "KAPE-MEDIA v${VERSION}" \
             --notes "${NOTES}" \
             "${ISO_PATH}"
-        env:
-          GH_TOKEN: ${{ secrets.BEACONLAB_RELEASES_TOKEN }}
-          RELEASES_REPO: ${{ secrets.BEACONLAB_RELEASES_REPO }}
 
-      - name: Tag release en repo principal
+      - name: Tag en workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
-          git tag "v${{ steps.get_version.outputs.VERSION }}"
-          git push origin "v${{ steps.get_version.outputs.VERSION }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.get_version.outputs.VERSION }}" || true
+          git push origin "v${{ steps.get_version.outputs.VERSION }}" || true
 
       - name: Resumen
         if: success()
@@ -154,4 +185,4 @@ jobs:
           echo "## Release v${{ steps.get_version.outputs.VERSION }} publicada"
           echo "ISO: dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
           echo "SHA-256: ${{ steps.hash.outputs.ISO_SHA }}"
-          echo "Repositorio: ${{ secrets.BEACONLAB_RELEASES_REPO }}"
+          echo "URL: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }}"
