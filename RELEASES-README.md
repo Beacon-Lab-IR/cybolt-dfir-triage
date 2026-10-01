@@ -102,11 +102,8 @@ shasum -a 256 -c SHA256SUMS.txt
 Si la verificacion falla, NO uses el ISO. Reportar el SHA-256 esperado
 vs obtenido al equipo IR.
 
-## Por que dos repos separados
+## Por que Releases y no el tree
 
-- `kape-media` (principal): solo codigo fuente, ~10 MB. Clonar es rapido.
-- `kape-media-releases` (binarios): solo `.iso`, ~600 MB por version.
-  Limpiamente separados para que:
-  - El repo de codigo no se infle con binarios.
-  - Los Releases sean faciles de encontrar/bajar sin clonar el repo.
-  - El historial de tags refleje solo codigo (no binarios).
+- El tree de `kape-media` tiene solo codigo fuente (~pocos MB). Clonar es rapido.
+- Los `.iso` (~560 MB) van como assets de GitHub Releases (<2 GB por archivo).
+- Asi el historial de git no se infla y bajar un ISO no requiere clonar el repo.
