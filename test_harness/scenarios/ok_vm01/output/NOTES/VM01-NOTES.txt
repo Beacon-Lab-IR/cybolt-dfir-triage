@@ -1,0 +1,25 @@
+============================================================
+ KAPE Triage - Notas de adquisicion
+============================================================
+ VM              : VM01
+ Hostname        : VM01-HOST
+ Operador        : harness
+ Fecha           : 20260921
+ ISO montada en : /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd
+ Salida en       : E:\  (label DFIR_OUTPUT)
+ Target          : KapeTriage
+ Source          : C:\
+ Inicio          : 2026-09-23 02:09:38
+ Comando (mock):
+   kape --tsource C: --target KapeTriage
+       --tdest /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+       --targetdir /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd/Targets
+       --zip /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+       --mdest /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/Modules
+       --moduledir /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd/Modules
+       --hv nc,vm --sync $Null --gui
+============================================================
+Fin: 2026-09-23 02:09:38
+KapeExitCode: 0
+SHA-256: 29694c9cf1ad6f17748f99d0cadd11a7df9481c8cc62af4aa6bfc36c46843e3b
+ZIPSize: 245 bytes

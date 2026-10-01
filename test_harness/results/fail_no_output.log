@@ -1,0 +1,32 @@
+[3J[H[2J  ===============================================================
+    KAPE Triage  -  Adquisicion DFIR automatica (offline)
+    Caso: ransomware Windows sobre VMware ESXi
+  ===============================================================
+
+  [HARNESS] SCENARIO_DIR=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/fail_no_output
+  [HARNESS] MOCK_CD=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/fail_no_output/mock_cd
+  [HARNESS] MOCK_OUTPUT=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/fail_no_output/output
+  [HARNESS] PATH override: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/bin
+
+
+  ----------------------------------------------------------------
+  [0. Privilegios de administrador]
+  ----------------------------------------------------------------
+   [OK]    Sesion con privilegios de administrador.
+
+
+  ----------------------------------------------------------------
+  [1. CD-ROM detectado]
+  ----------------------------------------------------------------
+       >> CD-ROM: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/fail_no_output/mock_cd
+       >> kape (real, NO ejecutado): /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/fail_no_output/mock_cd/kape.exe
+       >> kape (harness mock):      /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/bin/kape
+   [OK]    kape.exe accesible (real, no se ejecuta en el harness).
+
+
+  ----------------------------------------------------------------
+  [2. Buscando VMDK de salida (label DFIR_OUTPUT) ...]
+  ----------------------------------------------------------------
+   [FAIL]  No se encuentra unidad con etiqueta DFIR_OUTPUT.
+
+          Unidades visibles ahora:

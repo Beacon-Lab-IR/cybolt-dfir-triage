@@ -1,0 +1,15 @@
+# Binarios grandes — van a GitHub Releases, no al tree
+*.iso
+kape.zip
+staging/
+mock_cd
+
+# Build / OS
+bin/
+obj/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+*.swp
+*~

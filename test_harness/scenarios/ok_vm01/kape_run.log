@@ -1,0 +1,50 @@
+===== KAPE MOCK RUN Mon Sep 21 11:55:48 -03 2026 =====
+Args: 
+TDEST=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+TZIP=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+TARGET=KapeTriage
+TSOURCE=C:
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+===== KAPE MOCK DONE =====
+===== KAPE MOCK RUN Mon Sep 21 11:56:44 -03 2026 =====
+Args: 
+TDEST=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+TZIP=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+TARGET=KapeTriage
+TSOURCE=C:
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+===== KAPE MOCK DONE =====
+===== KAPE MOCK RUN Mon Sep 21 11:57:29 -03 2026 =====
+Args: 
+TDEST=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+TZIP=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+TARGET=KapeTriage
+TSOURCE=C:
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+===== KAPE MOCK DONE =====
+===== KAPE MOCK RUN Tue Sep 22 12:29:06 -03 2026 =====
+Args: 
+TDEST=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+TZIP=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+TARGET=KapeTriage
+TSOURCE=C:
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+===== KAPE MOCK DONE =====
+===== KAPE MOCK RUN Wed Sep 23 02:09:38 -03 2026 =====
+Args: 
+TDEST=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+TZIP=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+TARGET=KapeTriage
+TSOURCE=C:
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+===== KAPE MOCK DONE =====

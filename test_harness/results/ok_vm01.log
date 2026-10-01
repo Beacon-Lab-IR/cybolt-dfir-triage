@@ -1,0 +1,102 @@
+[3J[H[2J  ===============================================================
+    KAPE Triage  -  Adquisicion DFIR automatica (offline)
+    Caso: ransomware Windows sobre VMware ESXi
+  ===============================================================
+
+  [HARNESS] SCENARIO_DIR=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01
+  [HARNESS] MOCK_CD=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd
+  [HARNESS] MOCK_OUTPUT=/Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output
+  [HARNESS] PATH override: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/bin
+
+
+  ----------------------------------------------------------------
+  [0. Privilegios de administrador]
+  ----------------------------------------------------------------
+   [OK]    Sesion con privilegios de administrador.
+
+
+  ----------------------------------------------------------------
+  [1. CD-ROM detectado]
+  ----------------------------------------------------------------
+       >> CD-ROM: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd
+       >> kape (real, NO ejecutado): /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd/kape.exe
+       >> kape (harness mock):      /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/bin/kape
+   [OK]    kape.exe accesible (real, no se ejecuta en el harness).
+
+
+  ----------------------------------------------------------------
+  [2. Buscando VMDK de salida (label DFIR_OUTPUT) ...]
+  ----------------------------------------------------------------
+       >> Unidad de salida: E: (label DFIR_OUTPUT)
+   [OK]    Unidad detectada: E:
+
+
+  ----------------------------------------------------------------
+  [3. Identifique la VM que va a procesar:]
+  ----------------------------------------------------------------
+         1 >> VM01
+         2 >> VM02
+
+  [HARNESS] AUTO_VM=1, saltando prompt.
+       >> VM01 seleccionada.
+
+
+  ----------------------------------------------------------------
+  [4. Fecha y hostname]
+  ----------------------------------------------------------------
+       >> Fecha=20260921  Hostname=VM01-HOST
+       >> ZIP de salida: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+       >> NOTES:         /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/NOTES/VM01-NOTES.txt
+
+
+  ----------------------------------------------------------------
+  [5. Validando target KapeTriage]
+  ----------------------------------------------------------------
+   [OK]    KapeTriage.tkape presente.
+   [OK]    KAPE resuelve el target correctamente.
+
+  ===============================================================
+    RESUMEN - revise antes de continuar
+  ===============================================================
+    Origen    : C:\
+    ISO       : /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/mock_cd
+    Salida    : E:\  (label DFIR_OUTPUT)
+    VM        : VM01  (VM01-HOST)
+    Target    : KapeTriage
+    ZIP       : VM01-KAPE-20260921.zip
+    SHA-256   : se calculara al terminar
+    NOTAS     : NOTES/VM01-NOTES.txt
+  ===============================================================
+
+  [HARNESS] AUTO_CONFIRM=SI, saltando prompt.
+
+  ----------------------------------------------------------------
+  [6. Iniciando KAPE ...]
+  ----------------------------------------------------------------
+
+Target KapeTriage found in catalog.
+Copied mock artifacts to /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921
+mavis-trash: moved to trash: '/var/folders/j9/_nvs4s791xq9vh7p4483dyf40000gn/T/tmp.tkOL3IcLUD'
+Created ZIP /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip (245 bytes)
+
+  ===============================================================
+  KAPE termino con codigo de salida 0.
+  ===============================================================
+
+  ----------------------------------------------------------------
+  [Calculando SHA-256 ...]
+  ----------------------------------------------------------------
+  SHA-256: 29694c9cf1ad6f17748f99d0cadd11a7df9481c8cc62af4aa6bfc36c46843e3b
+  Guardado en: /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip.sha256
+
+  Tamano del ZIP:
+    245B /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+
+  Archivos generados en E:\:
+    /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip
+    /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/VM01-KAPE-20260921.zip.sha256
+    /Users/rbnetto/Projects/CYBOLT-PROJ/kape-iso/test_harness/scenarios/ok_vm01/output/NOTES/VM01-NOTES.txt
+
+  ===============================================================
+   Adquisicion de VM01 completada.
+  ===============================================================

@@ -1,0 +1,454 @@
+================================================================================
+  DRILL DFIR CON KAPE-MEDIA - GUIA OPERATIVA PARA TECNICO DE TI
+  KAPE-MEDIA v5.2.18  |  VMware vSphere / ESXi  |  Windows 10/11 victim
+================================================================================
+
+Esta guia esta escrita para un tecnico de TI que ejecuta el drill por primera
+vez. No improvises. Si un paso falla, NO continues al siguiente: detente y
+consulta al equipo de respuesta con el log del fallo.
+
+Audiencia:    tecnico de TI con privilegios de VMware vCenter/ESXi.
+Autor:        By Cybolt, MIT License.
+Advertencia:  esta guia describe una adquisicion forense en VMs de un
+              incidente de ransomware. La cadena de custodia es critica.
+              Cualquier paso mal dado (borrar disco, copiar via SMB, etc.)
+              invalida la evidencia.
+
+
+================================================================================
+PARTE 1: RESUMEN EJECUTIVO
+================================================================================
+
+QUE ES KAPE-MEDIA
+-----------------
+Es una ISO booteable-readonly que contiene KAPE 1.3.0.2 (Kroll), winpmem
+4.0.rc1 (captura de RAM), scripts de Windows, y un manual operativo. La ISO
+se monta como CD-ROM virtual en una VM Windows ya comprometida y permite
+recolectar evidencia forense SIN red, en un disco dedicado
+(DFIR-OUTPUT.vmdk) que viaja entre VMs como contenedor forense.
+
+QUE HACE ESTE DRILL
+--------------------
+1. Operador monta la ISO en la VM Windows afectada (sin red).
+2. Captura RAM con RAM_CAPTURE_UI.exe (procesos vivos, conexiones, claves).
+3. Corre KAPE_TRIAGE_UI.exe (registry hives, $MFT, event logs, prefetch,
+   Amcache, scheduled tasks, $LogFile, $UsnJrnl).
+4. Apaga la VM y mueve DFIR-OUTPUT.vmdk a una VM de analisis (mismo ISO
+   montada, red opcional).
+5. Analista extrae el ZIP + RAM, los pasa al equipo de respuesta.
+
+QUE NECESITAS SABER ANTES DE EMPEZAR
+------------------------------------
+- Acceso de vCenter/ESXi para gestionar VMs y mover discos.
+- Conocimientos de Windows: cmd, Explorer, administrador local.
+- Capacidad de hacer snapshot de la VM objetivo ANTES de empezar.
+- 30-50 minutos de tiempo continuo. Sin pausas largas.
+- El incidente original: nombre del ransomware, hora aproximada,
+  usuarios afectados, servicios caidos.
+
+SALIDAS ESPERADAS
+-----------------
+En E:\ (dentro de DFIR-OUTPUT.vmdk, que se mueve entre VMs):
+  RAM-{HOSTNAME}-{YYYYMMDD-HHMMSS}.raw         Captura de RAM fisica
+  RAM-{HOSTNAME}-{...}.raw.sha256             Hash SHA-256 del .raw
+  {HOSTNAME}-KAPE-{YYYYMMDD-HHMMSS}.zip       Artefactos (registry, etc)
+  {HOSTNAME}-KAPE-{...}.zip.sha256            Hash SHA-256 del ZIP
+  NOTES\{HOSTNAME}-NOTES-{YYYYMMDD}.txt       Notas del operador
+  NOTES\{HOSTNAME}-LOG-{YYYYMMDD}.txt         Log de la corrida
+
+QUE NO HACER
+------------
+  X NO borrar la VM objetivo antes de capturar.
+  X NO copiar evidencia a un share SMB intermedio. Mover el VMDK completo.
+  X NO power-off forzado. Usar Shutdown Guest OS.
+  X NO montar el VMDK de salida en modo read-write. Usar read-only.
+  X NO compartir credenciales de vCenter. Cada operario con su cuenta.
+
+
+================================================================================
+PARTE 2: PRE-REQUISITOS
+================================================================================
+
+  [ ] VMware vSphere Client o vCenter abierto y conectado.
+  [ ] Credenciales de vCenter/ESXi con permisos para:
+      - Snapshot de VMs
+      - Adjuntar/desadjuntar discos
+      - Subir ISOs a datastores
+  [ ] Token de upload al datastore si subes via API. Si no, via web UI
+      (requiere navegador).
+  [ ] SMB share \\<server>\helper\ si subes el ISO via SMB en vez de API.
+  [ ] SSH o consola al ESXi para mover el VMDK por CLI.
+  [ ] Acceso a vSphere Web Client para las tareas con GUI.
+  [ ] VMs identificadas:
+      - VM-A objetivo (la infectada, Windows 10/11, preferiblemente)
+      - VM-B de analisis (Win10/11 limpio, con winpmem/Volatility)
+      - VM-C de entrega o datastore compartido (cualquier Win con
+        espacio para copiar)
+  [ ] DFIR-OUTPUT.vmdk creado (16 GB, NTFS, label "DFIR_OUTPUT"). Si no
+      existe, ver seccion CREAR DISCO DE SALIDA abajo.
+  [ ] KAPE-MEDIA-v5.2.18.iso subida al datastore (ver seccion SUBIR ISO).
+  [ ] Snapshot defensivo de la VM-A ANTES de empezar.
+
+
+================================================================================
+PARTE 3: CHECKLIST PASO A PASO
+================================================================================
+
+A. SUBIR LA ISO AL DATASTORE
+-----------------------------
+
+A.1 Opcion A (preferida): Web UI de vCenter/ESXi
+    1. Abrir https://<vcenter-host>/ui en el navegador
+    2. Login con credenciales de vCenter
+    3. Ir a: Datacenter -> <cluster> -> <nodo> -> datastore1
+    4. Pestana "Storage" -> "Upload" -> "ISO file"
+    5. Seleccionar: KAPE-MEDIA-v5.2.18.iso
+    6. Esperar a que suba (~2-3 min para 562 MiB por LAN gigabit)
+    7. Verificar que aparece en la lista con tamano 588,883,968 bytes
+
+A.2 Opcion B: ESXi shell (SSH)
+    1. SSH al ESXi host: ssh root@<esxi-host>
+    2. Verificar espacio en datastore:
+         df -h /vmfs/volumes/datastore1
+    3. Si subes via SMB share \\<host>\helper\:
+         cd /vmfs/volumes/datastore1
+         ls -la
+       y luego copy desde el share. O usar scp desde este Mac.
+    4. Verificar integridad:
+         sha256sum /vmfs/volumes/datastore1/iso/KAPE-MEDIA-v5.2.18.iso
+       Hash esperado: 51f4a3172073f10e230c9eae273a57266b9e2c45f502ccb555c13af06f6d9978
+
+A.3 Opcion C: API REST con curl (si el API upload no rompe SSL)
+    1. POST al endpoint de upload del datastore.
+    2. Si retorna 506 o 400 silencioso, usar Opcion A.
+
+B. CREAR DISCO DE SALIDA (solo si no existe DFIR-OUTPUT.vmdk)
+----------------------------------------------------------------
+
+B.1 Crear VMDK en el datastore
+    1. vCenter: VM-A -> Edit Settings -> Add New Device -> Hard Disk
+    2. Tamano: 16 GB (mas que la RAM de la VM, recomendado 2x RAM)
+    3. Provisioning: Thin (recomendado) o Thick
+    4. Mode: Independent - Non-persistent (no snapshot dependency)
+    5. Location: mismo datastore que la VM objetivo
+    6. En SCSI controller 0, slot 1 (SCSI 0:1)
+    7. OK y esperar a que se cree.
+
+B.2 Dentro de la VM (cmd Administrator):
+       diskpart
+       list disk
+       select disk 1          (el disco nuevo, verificar tamano)
+       clean
+       convert gpt
+       create partition primary
+       format fs=ntfs quick label=DFIR_OUTPUT
+       assign letter=E
+       exit
+
+B.3 Verificar en Explorer que E:\ existe con label "DFIR_OUTPUT".
+    Tamano: ~15.9 GiB usables.
+
+C. CONFIGURAR LA VM OBJETIVO (VM-A)
+------------------------------------
+
+C.1 Snapshot defensivo (RECOMENDADO)
+    vCenter: VM-A -> Actions -> Snapshots -> Take Snapshot
+    Nombre: "pre-triage-{YYYYMMDD}"
+    Description: "Snapshot antes de captura DFIR. Preservar hasta cierre
+                  del ticket."
+
+C.2 Verificar que la ISO esta montada como CD-ROM
+    vCenter: VM-A -> Edit Settings
+    - CD/DVD drive 1 -> Datastore ISO File -> KAPE-MEDIA-v5.2.18.iso
+    - Connect at power on: SI
+    - Status: Connected (check)
+    Si no esta: Add New Device -> CD/DVD -> ISO desde datastore.
+
+C.3 Verificar que DFIR-OUTPUT.vmdk esta adjunto en SCSI 0:1
+    vCenter: VM-A -> Edit Settings
+    - SCSI Hard Disk 2 (o donde lo hayas puesto) -> existe
+    - Si no: Add New Device -> Existing Hard Disk -> seleccionar el VMDK.
+
+C.4 ASEGURAR QUE LA VM NO TIENE RED
+    vCenter: VM-A -> Edit Settings -> Network Adapter 1
+    - Connected: DESCONECTADO (unchecked)
+    - O cambiar a una VLAN aislada sin gateway.
+    CRITICO: el ransomware no debe poder exfiltrar durante la captura.
+
+C.5 Encender la VM
+    vCenter: VM-A -> Power On
+    Esperar a que cargue Windows. Login con la cuenta de admin local.
+
+D. EJECUTAR LA CAPTURA DENTRO DE LA VM-A
+-----------------------------------------
+
+D.1 Abrir cmd como Administrator
+    - Click derecho en Start -> Command Prompt (Admin) -> Si en UAC.
+
+D.2 (Opcional) Verificar requisitos con CHECK_COMPAT.cmd
+    cd /d D:\
+    CHECK_COMPAT.cmd
+    Verificar que el reporte (CHECK_COMPAT-REPORT.txt) muestre todos OK.
+    Si falla algo, arreglar antes de continuar.
+
+D.3 Captura de RAM con la GUI
+    1. En Explorer, ir a la unidad D: (CD-ROM de la ISO)
+    2. Doble clic en RAM_CAPTURE_UI.exe
+    3. Aceptar UAC (la app requiere admin)
+    4. La GUI auto-detecta:
+         - E: como salida (label DFIR_OUTPUT)
+         - D: como CD-ROM (donde esta winpmem)
+         - RAM total detectada
+    5. Si vas a usar la opcion "Ejecutar via cmd.exe wrapper" (recomendado
+       en VMs con AV agresivo), marcala antes de iniciar.
+    6. Click "Iniciar captura de RAM"
+    7. Esperar. 5-15 minutos para 6-16 GB de RAM.
+       ProgressBar muestra avance. Log muestra winpmem en vivo.
+    8. Al terminar:
+         - Status: "Completado. SHA-256 calculado."
+         - Log muestra tamano + SHA-256
+         - Archivo companion .sha256 escrito al lado
+
+D.4 Si la GUI falla con "ERROR: winpmem termino con exit code N"
+    - v5.2.18 considera la captura EXITOSA si el .raw quedo escrito
+      al >=95% de la RAM fisica. Revisa el log: si la advertencia
+      "ADVERTENCIA: winpmem retorno exit code N pero el archivo .raw
+      esta COMPLETO" aparece, ignora el error y continua con KAPE.
+    - Si la advertencia NO aparece y el .raw es chico: reintentá
+      con el checkbox "Ejecutar via cmd.exe wrapper" activado.
+
+D.5 (Opcional) Si la GUI no funciona, usar el batch fallback
+    D:\Tools\Memory\CAPTURE_RAM.cmd E:\
+    Mismo efecto, sin GUI.
+
+D.6 Triage KAPE
+    1. Doble clic en D:\KAPE_TRIAGE_UI.exe
+    2. Aceptar UAC
+    3. Esperar pre-flight (todos verde)
+    4. Verificar que "Particion de salida" muestra E: (DFIR_OUTPUT)
+    5. Click "Ejecutar adquisicion"
+    6. Esperar. 10-30 minutos. La UI muestra 6 fases:
+       - Fase 1: Stage (copia kape.exe a E:\_kape_stage)
+       - Fase 2: Copy (recolecta archivos)
+       - Fase 3: ZIP (comprime)
+       - Fase 4: SHA-256
+       - Fase 5: Notas
+       - Fase 6: Resumen
+    7. Al terminar: SHA-256 + tamano del ZIP + ruta final.
+
+D.7 Anotar contexto de la corrida
+    Crear E:\NOTES\{HOSTNAME}-NOTES-{YYYYMMDD}.txt con:
+    - Extension del ransomware
+    - Mensaje del ransom note (copiar/pegar)
+    - Wallpaper (si el operador lo cambio el ransomware)
+    - Usuarios bloqueados
+    - Servicios caidos
+    - Shares afectadas
+    - Hora de inicio y fin de la captura (UTC si es posible)
+    - Cualquier anomalia observada
+
+E. APAGADO Y MOVIMIENTO DEL DISCO
+-----------------------------------
+
+E.1 Apagado LIMPIO (no power-off forzado)
+    Dentro de la VM-A, cmd Administrator:
+        shutdown /s /t 0 /c "DFIR acquisition complete"
+    O desde vCenter: VM-A -> Actions -> Power -> Shut Down Guest OS
+    Esperar a que el estado sea "Powered Off" en vCenter.
+    CRITICO: NO usar Power Off (forzado). Ensucia el journal NTFS.
+
+E.2 Detach del disco de VM-A
+    vCenter: VM-A -> Edit Settings
+    - SCSI Hard Disk 2 (DFIR-OUTPUT.vmdk) -> boton X (Remove)
+    - En el dialogo: "Remove from Virtual Machine" (NO "Delete from Disk")
+    - OK. El VMDK queda en el datastore.
+
+E.3 Adjuntar a VM-B (de analisis)
+    vCenter: VM-B -> Edit Settings
+    - Add New Device -> Existing Hard Disk
+    - Seleccionar el VMDK que acabamos de desadjuntar de VM-A
+    - SCSI controller 0, slot 1
+    - Mode: Independent - Non-persistent (NO permitir snapshots)
+    - OK.
+
+E.4 (Equivalente por CLI desde ESXi shell)
+    vim-cmd vmsvc/device.diskadd <vmid-B> m \
+      "[datastore1] VM-A/DFIR-OUTPUT.vmdk" 0 1 scsi
+
+F. ANALISIS EN VM-B
+--------------------
+
+F.1 Encender VM-B
+    vCenter: VM-B -> Power On
+    Esperar Windows. Login como admin.
+
+F.2 Montar el disco READ-ONLY (preserva timestamps NTFS)
+    Opcion A: Arsenal Image Mounter (recomendado)
+        - Descarga gratuita: https://arsenalrecon.com/downloads/
+        - Montar VMDK como read-only, asignar letra E (o la que prefieras)
+    Opcion B: FTK Imager
+        - File -> Add Evidence Item -> Image File
+        - Browse al VMDK
+        - Importance: lectura
+    NO USAR: mount normal de Windows (escribe $LogFile y $MFT).
+
+F.3 Verificar integridad de los artefactos
+    PowerShell (Administrator) en VM-B:
+        cd E:\
+        Get-FileHash -Algorithm SHA256 *.raw, *.zip |
+            Format-Table Hash, Path
+    Comparar contra los archivos .sha256 companion:
+        Get-Content E:\RAM-*.raw.sha256
+        Get-Content E:\*KAPE-*.zip.sha256
+    Si coinciden: la evidencia esta integra.
+    Si NO coinciden: NO usar, re-capturar.
+
+F.4 (Si tenes Volatility) Validar el RAM
+        volatility -f E:\RAM-{HOST}-*.raw imageinfo
+    Debe responder con un profile sugerido (ej: Win10x64_18362).
+    Si dice "InvalidImage": el .raw esta corrupto, re-capturar limpio.
+
+F.5 Parsear artefactos KAPE
+    Extraer el ZIP:
+        Expand-Archive E:\*KAPE-*.zip -DestinationPath C:\DFIR-Analysis\
+    Correr las herramientas desde D:\Tools\kape.zip\Modules\bin\:
+        EvtxECmd.exe -d C:\DFIR-Analysis\*\Windows\System32\winevt\Logs\*.evtx ^
+                     --csv C:\DFIR-Analysis\evtx-csv\
+        MFTECmd.exe -f C:\DFIR-Analysis\*\$MFT --csv C:\DFIR-Analysis\mft-csv\
+        AmcacheParser.exe -f C:\DFIR-Analysis\*\Windows\AppCompat\Programs\Amcache.hve ^
+                          --csv C:\DFIR-Analysis\amcache-csv\
+    Etc.
+
+F.6 (Opcional) Volatility sobre la RAM
+        volatility -f E:\RAM-{HOST}-*.raw --profile=Win10x64_18362 pslist
+        volatility -f E:\RAM-{HOST}-*.raw --profile=Win10x64_18362 netscan
+        volatility -f E:\RAM-{HOST}-*.raw --profile=Win10x64_18362 hashdump
+
+G. ENTREGA
+-----------
+
+G.1 Opcion A: Almacenar en datastore compartido
+    vCenter: Storage -> datastore compartido (datastore-IR) -> Files
+    Subir: DFIR-OUTPUT.vmdk + DFIR-OUTPUT-flat.vmdk
+    Anotar en el ticket: ruta, SHA-256 de los VMDKs, fecha UTC.
+
+G.2 Opcion B: VM-C de custodia
+    Adjuntar el VMDK a una tercera VM con red aislada IR.
+    Desde ahi, copiar a SMB/NAS del equipo de respuesta.
+    La copia via SMB es ACEPTABLE en este punto porque ya estamos
+    fuera de la VM objetivo. La cadena de custodia se mantiene
+    registrando hashes pre y post copia.
+
+G.3 Registrar en el ticket IR
+    - Hostname de VM-A
+    - Version de Windows y de KAPE
+    - SHA-256 del .raw y del .zip
+    - SHA-256 de los VMDKs pre/post copia (si aplica)
+    - Tamano total
+    - Fecha/hora UTC de inicio y fin
+    - Anomalias observadas
+    - Path de la evidencia entregada
+
+
+================================================================================
+PARTE 4: PROBLEMAS COMUNES
+================================================================================
+
+SINTOMA                              | CAUSA PROBABLE                  | FIX
+-------------------------------------|----------------------------------|-----------------------------
+RAM_CAPTURE_UI muestra "ERROR:       | winpmem retorna exit != 0        | v5.2.18 ya lo maneja. Si
+winpmem termino con exit code N"     | desde .NET (falso positivo)      | no, marcar checkbox "via
+                                    |                                  | cmd.exe wrapper".
+-------------------------------------|----------------------------------|-----------------------------
+Log de la GUI esta vacio             | Race condition con stdout        | Cerrar y abrir GUI, retry.
+                                    | redirigido                       |
+-------------------------------------|----------------------------------|-----------------------------
+"RAM total detectada: 0 bytes"       | WMI no responde / permisos       | Reintentar como admin. Si
+                                    |                                  | persiste, completar RAM a
+                                    |                                  | mano en el log.
+-------------------------------------|----------------------------------|-----------------------------
+KAPE se queda colgado en fase 3      | KAPE 1.3.0.2 espera input en     | Bug conocido. La GUI v5.2.13
+                                    | Console.ReadKey()                | ya lo cierra. Si pasa, matar
+                                    |                                  | kape.exe desde Task Manager
+                                    |                                  | y verificar el ZIP de salida.
+-------------------------------------|----------------------------------|-----------------------------
+"Acceso denegado" al stage           | E: no es escribible o falta      | Verificar: dir E:\_kape_stage
+                                    |                                  | Si no existe, crear manual:
+                                    |                                  | mkdir E:\_kape_stage
+-------------------------------------|----------------------------------|-----------------------------
+ZIP tiene doble .zip.zip              | Bug en versiones viejas          | Usar KAPE_TRIAGE_UI v5.2.13+
+                                    |                                  | (arreglado desde v5.2.10).
+-------------------------------------|----------------------------------|-----------------------------
+SHA-256 muestra "ERROR"              | certutil formato raro            | v5.2.12+ usa SHA256 nativo.
+                                    |                                  | Re-actualizar ISO si tenes
+                                    |                                  | una version vieja.
+-------------------------------------|----------------------------------|-----------------------------
+"Volatility: InvalidImage" sobre     | .raw truncado o corrupto        | Recapturar limpio con v5.2.18
+el .raw de la GUI                    |                                  | (que avisa si quedo corto).
+                                    |                                  | Tambien probar el .raw del
+                                    |                                  | manual cmd si lo hiciste.
+-------------------------------------|----------------------------------|-----------------------------
+"No se encuentra el binario de       | ISO no montada o letra de CD-ROM | Verificar en Explorer que
+WinPmem" en la GUI                   | mal detectada                    | D:\Tools\Memory\winpmem_mini_
+                                    |                                  | x64_rc2.exe existe. Si la
+                                    |                                  | ISO esta en otra letra,
+                                    |                                  | seleccionar en el ComboBox.
+-------------------------------------|----------------------------------|-----------------------------
+"Error critico al subir ISO al       | API upload >65 KB roto con SSL   | Usar vCenter Web UI para
+datastore" via API                   |                                  | subir (Opcion A.1). NO usar
+                                    |                                  | curl con PVE (salvo que SSL
+                                    |                                  | funcione).
+-------------------------------------|----------------------------------|-----------------------------
+
+
+================================================================================
+PARTE 5: LIMPIEZA POST-DRILL
+================================================================================
+
+DESPUES de entregar la evidencia al equipo IR:
+
+  [ ] Restaurar el snapshot defensivo de VM-A (opcional, si queres
+      volver al estado pre-drill para otros usos).
+  [ ] Marcar VM-A como "triage complete" en el inventario de vCenter.
+      Tags: triage-status=complete, incident={TICKET}, last-drill={YYYYMMDD}.
+  [ ] Si la credencial admin local fue compartida con el operador IR,
+      rotar la password:
+        net user administrator *  (dentro de VM-A, cmd admin)
+      Y actualizar el ticket con la nueva password (o marcarla como
+      de un solo uso).
+  [ ] Si usaste un share SMB con credenciales dedicadas, eliminar el
+      share y rotar la password de esa cuenta:
+        net share helper /delete
+  [ ] Si usaste tokens de API de Proxmox, rotarlos:
+        pveum userdel kape-uploader@pve
+        (y crear uno nuevo si lo necesitas para futuras ISOs)
+  [ ] Preservar DFIR-OUTPUT.vmdk en el datastore IR o en cinta LTO
+      por el periodo que la politica del equipo IR indique (tipicamente
+      1 ano para incidentes de ransomware).
+  [ ] Documentar cierre del ticket IR con: tamano total, hash final,
+      path de evidencia entregada.
+
+
+================================================================================
+PARTE 6: CONTACTO Y ESCALAMIENTO
+================================================================================
+
+Si algo en esta guia no funciona como se describe:
+  1. NO improvisar. Detenerse.
+  2. Capturar screenshot del error.
+  3. Usar el boton "Copiar log" de RAM_CAPTURE_UI.exe (v5.2.16+) para
+     obtener el diagnostico completo en formato texto listo para
+     pegar en el ticket.
+  4. Reportar al equipo IR con: screenshot, log, version de ISO
+     usada, nombre de la VM objetivo, errores observados.
+
+Contacto del equipo IR: _____________________________
+  Email:    _____________________________
+  Slack:    _____________________________
+  Telefono: _____________________________
+
+
+================================================================================
+FIN DE LA GUIA. By Cybolt, MIT License.
+KAPE-MEDIA v5.2.18 - DFIR drill flow sobre VMware.
+================================================================================

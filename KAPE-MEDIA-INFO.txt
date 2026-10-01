@@ -1,0 +1,207 @@
+================================================================================
+  KAPE-MEDIA-v5.2.18.iso - Resumen y verificacion
+  Caso: ransomware Windows sobre VMware ESXi / Proxmox VE - sin red, offline
+================================================================================
+
+VERSION
+-------
+  Version      : 5.2.18
+  Build        : 2026-09-23
+  Plataforma   : Windows (.NET Framework 4.5.2+)
+  Archivo ISO  : KAPE-MEDIA-v5.2.18.iso
+
+ARCHIVO
+-------
+  Nombre  : KAPE-MEDIA-v5.2.18.iso
+  Tamano  : 588 883 968 bytes (562 MiB / 589 MB decimal)
+  Formato : ISO9660 con extensiones Joliet (no booteable)
+  Volumen : KAPE-MEDIA-v5.2.18
+  Generado en : macOS via hdiutil makehybrid
+
+SHA-256
+-------
+  51f4a3172073f10e230c9eae273a57266b9e2c45f502ccb555c13af06f6d9978  KAPE-MEDIA-v5.2.18.iso
+
+HASHES DE ARCHIVOS CRITICOS
+----------------------------
+  kape.exe                              : 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b
+  KAPE_TRIAGE_UI.exe                    : 7664b8d8454affa0592ef01cd2e7ab1d45489486c5dd965040ae3fca48fb6c76
+  RAM_CAPTURE_UI.exe                    : 9f395a9e41fa1c8ad3a2413bda3ac3102a4da2c40161cc211d0702424d7f6d2a
+  KAPE_TRIAGE_UI.exe.config             : cd01de75bd5626c11bf2c1d9983f87b9f24ccabfe5edf5657df0870c27106ab7
+  KAPE_TRIAGE.cmd                       : da21dba98bcba3078f901e087500a2fa92a3b72be40594e88794403dd61558c5
+  CHECK_COMPAT.cmd                      : 245a4ec94bcd5b1daaf17708155aa578817af84f812bcd9293f017e63b94edae
+  Tools/kape.zip                        : 92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892
+  Tools/Memory/winpmem_mini_x64_rc2.exe : a4d516b6fcaf3b5b1d4ee709ce86f8eabf1d8028b3a83101479b7568b933d21b
+  Tools/Memory/CAPTURE_RAM.cmd          : 4dc7b122aed14aa5649e1a9bad403d69bb7e944b1aef51bf85ae8552500fce05
+  LICENSE                               : 95f91caf573067768987e63b80e8afbdf5d15e0487665f9522ebb374ba5095db
+
+COMPATIBILIDAD (KAPE 1.3.0.2 + scripts + UI)
+---------------------------------------------
+  Windows 11 / 10 / 8.1 / 8 : OK
+  Windows 7 SP1             : OK si .NET 4.5.2 instalado
+  Server 2012+ / 2008 R2 SP1 : OK
+  XP / Vista                : NO SOPORTADO
+
+KAPE_TRIAGE_UI.exe detalles:
+  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
+  Tamano        : 43 KB
+  Plataforma    : x86-64
+  Manifest      : requireAdministrator (UAC forzado al arranque)
+  Version       : 5.2.13
+  Licencia      : MIT (Copyright (c) 2026 Cybolt)
+
+RAM_CAPTURE_UI.exe detalles:
+  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
+  Tamano        : 29 KB
+  Plataforma    : x86-64
+  Manifest      : requireAdministrator (UAC forzado al arranque)
+  Version       : 5.2.18
+  Licencia      : MIT (Copyright (c) 2026 Cybolt)
+  Funcion       : Envoltorio GUI para winpmem_mini_x64_rc2.exe. Auto-detecta
+                 CD-ROM y disco de salida (label DFIR_OUTPUT), valida espacio
+                 libre (RAM + 10% overhead), lanza winpmem con Process
+                 redirigido, parsea progreso a ProgressBar, calcula SHA-256
+                 nativo .NET al finalizar.
+
+  Mejoras v5.2.18 vs v5.2.17:
+    - FIX CRITICO: si el archivo .raw quedo escrito al >=95% de la RAM
+      fisica total, la captura se considera exitosa pese a exit code
+      != 0 de winpmem. Caso 2026-09-30 con DESKTOP-3GUGLTM: el archivo
+      de la GUI "fallida" midio 6,291,456 KB (6 GiB exactos), identico
+      al manual exitoso desde cmd. v5.2.17 y anteriores reportaban
+      ERROR aunque la captura fuera valida. v5.2.18 loguea advertencia,
+      continua con SHA-256 y trata la captura como exitosa.
+
+  Mejoras v5.2.17 vs v5.2.16:
+    - MEJORA: checkbox opt-in "Ejecutar via cmd.exe wrapper" en la GUI.
+      Cuando esta marcado, la GUI lanza `cmd.exe /c winpmem.exe ...`
+      en vez del .exe directo. Esto replica lo que el operador hace
+      en cmd interactivo (donde winpmem corre limpio). Caso: cuando
+      Defender u otro AV bloquea el .raw durante la captura desde un
+      proceso .NET. Sintoma tipico: exit 1 al 85-92% con .raw escrito
+      parcialmente. Validado drill 2026-09-30 con DESKTOP-3GUGLTM:
+      manual cmd OK 6 GiB; GUI directa exit 1; GUI wrapper OK.
+
+  Mejoras v5.2.16 vs v5.2.15:
+    - MEJORA: el diagnostico de error de winpmem ahora se escribe dentro
+      del TextBox de log de la GUI (no se pierde al cerrar el popup) y
+      hay boton "Copiar log" que lo manda al portapapeles con header
+      estructurado (hostname, fecha/hora, SO, usuario, output path,
+      binario, espacio libre, ultimas 25 lineas de stdout/stderr, info
+      del archivo .raw parcial, causas comunes del exit code). El operador
+      pega el contenido al ticket sin tener que hacer screenshot ni
+      copiar a mano desde un popup que se cierra.
+
+  Mejoras v5.2.15 vs v5.2.14:
+    - FIX: Diagnostico de errores en captura de RAM. v5.2.14 mostraba
+      "winpmem termino con exit code 1" sin contexto. Bug observado en
+      drill 2026-09-30 con VM DESKTOP-3GUGLTM (6 GB RAM, Windows 10):
+      el .raw se escribio a 6.00 GiB (RAM completa) pero winpmem salio
+      con exit 1 sin stdout en la UI. v5.2.15 captura stdout/stderr de
+      winpmem en strings, detecta archivo parcial, muestra las ultimas
+      25 lineas de cada stream y lista causas comunes del exit code
+      (Defender/AV en tiempo real, LSASS Protection / Credential Guard,
+      politica de grupo restringiendo carga de drivers, disco lleno).
+      Abre MessageBox expandido con todo el detalle.
+    - FIX cosmetico: label "RAM total detectada: 5.00 GB (4 GB)"
+      mostraba dos conversiones inconsistentes. Ahora una sola:
+      FormatBytes() basada en suma de sticks Win32_PhysicalMemory
+      (mas preciso que Win32_ComputerSystem.TotalPhysicalMemory).
+
+  Mejoras v5.2.14 vs v5.2.13:
+    - NUEVO: RAM_CAPTURE_UI.exe - GUI WinForms para captura de RAM.
+      Auto-detecta letra del CD-ROM donde esta Tools\Memory\
+      winpmem_mini_x64_rc2.exe, auto-detecta particion de salida por
+      label DFIR_OUTPUT (con ComboBox de fallback si hay varias),
+      muestra hostname/fecha/RAM total detectada, valida espacio libre
+      (RAM + 10% overhead) con confirmacion, lanza winpmem con Process
+      redirigido (stdout/stderr al TextBox de log), parsea lineas de
+      progreso de winpmem para actualizar ProgressBar, al terminar
+      calcula SHA-256 con System.Security.Cryptography.SHA256 nativo
+      (.NET) y escribe archivo companion .sha256. Boton Cancelar mata
+      el proceso winpmem en vuelo. Boton Verificar SHA-256 permite
+      re-calcular el hash post-captura.
+    - MEJORA: CAPTURE_RAM.cmd (batch) se mantiene como fallback. Si el
+      entorno no permite GUI (RDP limitado, SSH-only), el batch hace
+      lo mismo sin interfaz.
+
+  Mejoras v5.2.13 vs v5.2.12:
+    - NUEVO: Captura de RAM standalone (Opcion B sin GUI). El operador
+      corre Tools\Memory\CAPTURE_RAM.cmd como Administrator ANTES de
+      lanzar la UI. El script valida admin, ejecuta
+      winpmem_mini_x64_rc2.exe (Velocidex v4.0.rc1, firmado Microsoft)
+      y vuelca la RAM a E:\RAM-<HOSTNAME>-<DATE>.raw con SHA-256
+      certutil. Sin segunda GUI, sin red, mismo VMDK de salida que el
+      ZIP de KapeTriage (cadena de custodia consistente).
+    - NUEVO: LICENSE MIT con Copyright (c) 2026 Cybolt y atribucion
+      "By Cybolt, MIT License" en header de Program.cs + LICENSE.
+
+  Mejoras v5.2.12 vs v5.2.11:
+    - FIX: SHA-256 nativo .NET en lugar de certutil. Bug observado en
+      drill 2026-09-25 con v5.2.11: el ZIP se generaba correctamente
+      pero el SHA-256 automatico fallaba porque mi regex buscaba 64
+      hex chars continuos y certutil -hashfile formatea con espacios
+      cada 2 chars en varias lineas. UI mostraba "SHA-256: ERROR"
+      aunque certutil hubiera calculado bien. Fix:
+      System.Security.Cryptography.SHA256 nativo, streaming, sin
+      subprocess, formato estable, ~3x mas rapido.
+
+  Mejoras v5.2.11 vs v5.2.10:
+    - KAPE stdin close. KAPE terminaba la copia + compresion ZIP pero
+      kape.exe se quedaba vivo en Console.ReadKey() esperando una
+      tecla. Flag --gui no suprime ese prompt en KAPE 1.3.0.2. La
+      UI quedaba congelada en fase 3. Fix: cerrar stdin despues de
+      Start, KAPE ve EOF, sale del Main, WaitForExit retorna.
+    - AppInfo.Version = "5.2.11" (antes quedo en "5.2.9").
+
+  Mejoras v5.2.10 vs v5.2.9:
+    - Fix cosmetico .zip.zip. KAPE 1.3.0.2 toma el valor de --zip y
+      le agrega sufijo .zip por su cuenta. Fix: NO concatenar ".zip"
+      en BuildDefaultKapeArgs.
+    - Fix logico: post-KAPE ZIP detection. KAPE siempre escribe el
+      ZIP dentro de --tdest con timestamp prefix. v5.2.10 busca por
+      patron {tdest}\*_E__{hostname}-KAPE-*.zip.
+
+  Mejoras v5.2.9 vs v5.2.8:
+    - SHA-256 verification del kape.exe staged.
+
+FLUJO DE CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
+-------------------------------------------------------------------
+  1. Operador monta KAPE-MEDIA-v5.2.18.iso como CD-ROM en la VM
+     afectada (sin red, VMDK DFIR_OUTPUT adjunto como segundo disco).
+  2. Si quiere GUI: abre cmd como Administrator, navega a la ISO,
+     doble clic en RAM_CAPTURE_UI.exe. Acepta UAC.
+     Si GUI no aplica: doble clic en D:\Tools\Memory\CAPTURE_RAM.cmd.
+  3. La GUI auto-detecta:
+       - Letra del CD-ROM (con ComboBox si hay varios).
+       - Particion de salida (label DFIR_OUTPUT; ComboBox si varias).
+       - Hostname, fecha, RAM total detectada (suma de sticks fisicos).
+  4. Operador valida y click "Iniciar captura de RAM".
+  5. UI valida espacio libre (RAM + 10%), pide confirmacion, lanza
+     winpmem con Process, redirige stdout/stderr al TextBox, parsea
+     progreso a ProgressBar.
+  6. Al terminar (exit 0), SHA-256 se calcula con
+     System.Security.Cryptography.SHA256 streaming. Se escribe
+     companion {output}.sha256.
+  7. UI muestra tamano + SHA-256 + tiempo transcurrido. Boton
+     "Verificar SHA-256" permite re-calcular post-captura.
+
+  Si winpmem falla con exit code != 0:
+     - v5.2.18 abre MessageBox expandido con:
+         * Tamano del archivo .raw parcial (si existe).
+         * Ultimas 25 lineas de stdout.
+         * Ultimas 25 lineas de stderr.
+         * Lista de causas comunes: Defender/AV en tiempo real,
+           LSASS Protection / Credential Guard, politica de grupo
+           restringiendo drivers, disco lleno.
+
+  El binario winpmem_mini_x64_rc2.exe es de Velocidex / WinPmem
+  v4.0.rc1 (firmado Microsoft), 527 KB, 64-bit. Funciona en
+  Windows 7 SP1+ / Server 2008 R2+.
+
+NOTA SOBRE TAMANO DEL ISO
+-------------------------
+Tools/kape.zip = 553 MB. Raiz operativa + Tools/Memory ~0.6 MB.
+Total ISO ~562 MiB (589 MB).
+
+================================================================================

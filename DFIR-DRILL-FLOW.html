@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flujo DFIR — KAPE-MEDIA sobre VMware</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f5f0;
+  --card: #ffffff;
+  --border: #e9e3d6;
+  --line: #d6cfbf;
+  --line-soft: #e9e3d6;
+  --ink: #14171e;
+  --ink-2: #3a4256;
+  --muted: #7c7a72;
+  --primary: #2f6f5e;
+  --primary-soft: #2f6f5e18;
+  --warn: #c97b3f;
+  --warn-soft: #c97b3f18;
+  --danger: #b06367;
+  --danger-soft: #b0636718;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 0%, rgba(47,111,94,0.05), transparent 70%),
+    radial-gradient(ellipse 500px 400px at 85% 100%, rgba(201,123,63,0.04), transparent 70%);
+  min-height: 100dvh;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+/* HERO */
+.hero {
+  margin-bottom: 56px;
+}
+.hero .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 6px 12px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 42px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0 0 18px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--primary);
+}
+.hero p {
+  max-width: 720px;
+  font-size: 16px;
+  color: var(--ink-2);
+  margin: 0;
+}
+.hero .meta {
+  display: flex;
+  gap: 24px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.hero .meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* SECTION HEADERS */
+h2 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+h2 .num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--primary);
+  letter-spacing: 0.05em;
+  margin-right: 12px;
+  vertical-align: middle;
+}
+.section-sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 32px;
+  max-width: 720px;
+}
+section {
+  margin-bottom: 64px;
+}
+
+/* FLOW DIAGRAM */
+.flow {
+  display: grid;
+  grid-template-columns: 1fr 36px 1fr 36px 1fr 36px 1fr;
+  gap: 0;
+  align-items: stretch;
+}
+.stage {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  min-height: 540px;
+}
+.stage.s1 { border-top: 3px solid var(--danger); }
+.stage.s2 { border-top: 3px solid var(--warn); }
+.stage.s3 { border-top: 3px solid var(--primary); }
+.stage.s4 { border-top: 3px solid var(--ink-2); }
+
+.stage .label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.stage.s1 .label { color: var(--danger); }
+.stage.s2 .label { color: var(--warn); }
+.stage.s3 .label { color: var(--primary); }
+.stage.s4 .label { color: var(--ink-2); }
+
+.stage h3 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.stage .role {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.vm-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.vm-card .vm-title {
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.vm-card .vm-detail {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.vm-card .vm-detail code {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.disk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.arrow svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--muted);
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.actions {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.actions .step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.actions .step .n {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.stage.s1 .actions .step .n { background: var(--danger); }
+.stage.s2 .actions .step .n { background: var(--warn); }
+.stage.s4 .actions .step .n { background: var(--ink-2); }
+
+/* ARTIFACTS TABLE */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+th, td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+th {
+  background: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+tr:last-child td { border-bottom: none; }
+td code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--primary);
+}
+.badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.badge.ram { background: #c97b3f18; color: var(--warn); }
+.badge.zip { background: #2f6f5e18; color: var(--primary); }
+.badge.note { background: #3a425618; color: var(--ink-2); }
+.badge.sha { background: #b0636718; color: var(--danger); }
+
+/* COMMANDS GRID */
+.cmd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.cmd-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.cmd-card h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+.cmd-card .desc {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.cmd-card pre {
+  background: #14171e;
+  color: #e8e6df;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: auto;
+}
+.cmd-card pre .c { color: #6f7a85; }
+.cmd-card pre .k { color: #c97b3f; }
+.cmd-card pre .s { color: #9bc59b; }
+
+/* KEY-VALUE */
+.kv {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  row-gap: 12px;
+  column-gap: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+}
+.kv dt {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.kv dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.kv dd code {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  color: var(--primary);
+}
+
+/* FOOTER */
+footer {
+  margin-top: 80px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+footer code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* MOBILE */
+@media (max-width: 980px) {
+  .flow { grid-template-columns: 1fr; gap: 16px; }
+  .arrow { transform: rotate(90deg); padding: 8px 0; }
+  .hero h1 { font-size: 32px; }
+  main { padding: 40px 20px 64px; }
+  .kv { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<main>
+
+<!-- HERO -->
+<div class="hero">
+  <span class="eyebrow">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    DFIR Drill · KAPE-MEDIA v5.2.14
+  </span>
+  <h1>Flujo de adquisici&oacute;n <em>forense</em><br>sobre hipervisor VMware</h1>
+  <p>Procedimiento operativo para adquisici&oacute;n de evidencia digital en VMs Windows comprometidas (ransomware / intrusi&oacute;n). El disco de salida viaja entre tres VMs mediante re-attach del VMDK; la red permanece aislada durante toda la captura. Cadena de custodia preservada porque los archivos nunca abandonan el disco de evidencia hasta la entrega final.</p>
+  <div class="meta">
+    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> vSphere 7/8 + ESXi</span>
+    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> ~30&ndash;50 min total</span>
+    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg> Cadena de custodia intacta</span>
+    <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg> Sin red durante captura</span>
+  </div>
+</div>
+
+<!-- FLOW DIAGRAM -->
+<section>
+  <h2><span class="num">01</span>Flujo de 4 etapas</h2>
+  <p class="section-sub">El disco de evidencia (<code>DFIR-OUTPUT.vmdk</code>) viaja entre las VMs como medio de transporte forense. Cada re-attach preserva timestamps NTFS, $MFT, $LogFile, $UsnJrnl y ADS&mdash;copiar a SMB y de vuelta los mutar&iacute;a.</p>
+
+  <div class="flow">
+
+    <!-- ETAPA 1 -->
+    <div class="stage s1">
+      <span class="label">Etapa 1</span>
+      <h3>Adquisici&oacute;n</h3>
+      <div class="role">VM Windows afectada &middot; red aislada</div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          VM-A (infectada)
+        </div>
+        <div class="vm-detail">
+          <code>ide1:0</code> CD-ROM &rarr; <code>KAPE-MEDIA-v5.2.14.iso</code><br>
+          <code>scsi0:1</code> DFIR-OUTPUT.vmdk (16 GB, NTFS, label <code>DFIR_OUTPUT</code>)<br>
+          NIC: desconectada o VLAN aislada
+          <div class="disk-badge">E: \\\\ DFIR_OUTPUT</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="step"><span class="n">1</span><div><strong>RAM primero.</strong> Doble clic en <code>RAM_CAPTURE_UI.exe</code> &rarr; confirma &rarr; espera 5&ndash;15 min. Resultado: <code>E:\\RAM-{HOST}-{DATETIME}.raw</code> + <code>.sha256</code>.</div></div>
+        <div class="step"><span class="n">2</span><div><strong>KapeTriage.</strong> Doble clic en <code>KAPE_TRIAGE_UI.exe</code>. Pre-flight OK &rarr; click "Ejecutar". Espera 10&ndash;30 min. Resultado: ZIP de ~800 MB + SHA-256.</div></div>
+        <div class="step"><span class="n">3</span><div><strong>Notas.</strong> Anotar extensi&oacute;n del ransomware, wallpaper, ransom note, servicios ca&iacute;dos. Quedan en <code>E:\\NOTES\\</code>.</div></div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- ETAPA 2 -->
+    <div class="stage s2">
+      <span class="label">Etapa 2</span>
+      <h3>Movimiento</h3>
+      <div class="role">vCenter / ESXi &middot; operaci&oacute;n at&oacute;mica</div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          VM-A &mdash; shutdown limpio
+        </div>
+        <div class="vm-detail">
+          <code>Shut Down Guest OS</code><br>
+          Espera a que el estado sea <code>poweredOff</code> en vSphere.<br>
+          <em>NUNCA</em> power-off forzado en esta etapa &mdash; ensucia el journal NTFS del pr&oacute;ximo boot del analista.
+        </div>
+      </div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5 8l-3 4 3 4M19 8l3 4-3 4"/></svg>
+          DFIR-OUTPUT.vmdk
+        </div>
+        <div class="vm-detail">
+          <strong>VM-A &rarr; datastore</strong><br>
+          <code>Edit Settings &rarr; SCSI Hard Disk 2 &rarr; Remove</code> (Remove <em>from VM</em>, NO <em>Delete from Disk</em>).<br>
+          El VMDK queda &iacute;ntegro en el datastore.
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="step"><span class="n">A</span><div><strong>Snapshot defensivo (opcional).</strong> Tomar snapshot de VM-A antes de remover el disco, por si el analista quiere volver a la evidencia original.</div></div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- ETAPA 3 -->
+    <div class="stage s3">
+      <span class="label">Etapa 3</span>
+      <h3>An&aacute;lisis</h3>
+      <div class="role">VM forense &middot; red opcional (read-only)</div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          VM-B (an&aacute;lisis forense)
+        </div>
+        <div class="vm-detail">
+          <code>ide1:0</code> CD-ROM &rarr; <code>KAPE-MEDIA-v5.2.14.iso</code> (mismo ISO, para docs/Tools)<br>
+          <code>scsi0:1</code> &rarr; <strong>DFIR-OUTPUT.vmdk re-attach</strong> desde datastore<br>
+          NIC: opcional (read-only / aislada)
+          <div class="disk-badge">E: \\ DFIR_OUTPUT</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="step"><span class="n">1</span><div><strong>Mount read-only.</strong> Antes de tocar nada: <code>mountvol E: /D</code> y remontar con <code>-o ro</code> via <code>FTK Imager</code> o <code>Arsenal Image Mounter</code>. Preserva timestamps.</div></div>
+        <div class="step"><span class="n">2</span><div><strong>Verificar integridad.</strong> <code>Get-FileHash -Algorithm SHA256 *.zip, *.raw</code> y comparar contra los <code>.sha256</code> generados en VM-A.</div></div>
+        <div class="step"><span class="n">3</span><div><strong>An&aacute;lisis.</strong> EvtxECmd / MFTECmd / PECmd / AmcacheParser (desde <code>Tools\kape.zip</code>) sobre los artefactos descomprimidos. Volatility sobre el <code>.raw</code>.</div></div>
+        <div class="step"><span class="n">4</span><div><strong>Reporte.</strong> Timeline, IoCs, alcance, recomendaciones. Sale del VM-B al sistema de tickets / NAS del equipo IR.</div></div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- ETAPA 4 -->
+    <div class="stage s4">
+      <span class="label">Etapa 4</span>
+      <h3>Entrega</h3>
+      <div class="role">Storage o VM de custodia &middot; red abierta</div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg>
+          Opci&oacute;n A &mdash; Datastore VMware
+        </div>
+        <div class="vm-detail">
+          <code>Datastore Browser &rarr; copy</code> el par <code>DFIR-OUTPUT.vmdk</code> + <code>DFIR-OUTPUT-flat.vmdk</code> al datastore compartido / NAS del equipo IR / cinta LTO.
+        </div>
+      </div>
+
+      <div class="vm-card">
+        <div class="vm-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Opci&oacute;n B &mdash; VM de custodia
+        </div>
+        <div class="vm-detail">
+          <code>VM-C</code> con red perimetral / VPN IR. Mismo <code>DFIR-OUTPUT.vmdk</code> re-attach + un segundo disco <code>EGRESS</code> NTFS. El analista externo copia los artefactos v&iacute;a SMB hacia su workstation.
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="step"><span class="n">X</span><div><strong>Cadena de custodia.</strong> Cada movimiento del VMDK se registra en el ticket: timestamp UTC, qui&eacute;n lo movi&oacute;, VM origen/destino, hash del VMDK completo (opcional, para detectar cambio de bits).</div></div>
+        <div class="step"><span class="n">Y</span><div><strong>Cleanup VM-A.</strong> Restaurar snapshot defensivo, marcar como "triage complete" en el inventario vCenter, apagar si no se necesita.</div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ARTIFACTS -->
+<section>
+  <h2><span class="num">02</span>Artefactos generados</h2>
+  <p class="section-sub">Todo queda en <code>DFIR-OUTPUT.vmdk</code> durante la captura. El VMDK es el contenedor forense, no los archivos sueltos.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Path en E:\\ (DFIR_OUTPUT)</th>
+        <th>Contenido</th>
+        <th>Generado por</th>
+        <th>Tama&ntilde;o t&iacute;pico</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>RAM-{HOST}-{YYYYMMDD-HHMMSS}.raw</code> <span class="badge ram">RAM</span></td>
+        <td>Volcado f&iacute;sico de RAM (procesos vivos, conexiones, credenciales en memoria)</td>
+        <td>RAM_CAPTURE_UI.exe / winpmem</td>
+        <td>~RAM asignada</td>
+      </tr>
+      <tr>
+        <td><code>RAM-{HOST}-...raw.sha256</code> <span class="badge sha">HASH</span></td>
+        <td>SHA-256 del .raw para verificar integridad en an&aacute;lisis</td>
+        <td>RAM_CAPTURE_UI.exe</td>
+        <td>64 bytes</td>
+      </tr>
+      <tr>
+        <td><code>{HOST}-KAPE-{YYYYMMDD-HHMMSS}.zip</code> <span class="badge zip">KAPE</span></td>
+        <td>KapeTriage: registry hives, $MFT, event logs, prefetch, scheduled tasks, Amcache, $LogFile, $UsnJrnl, etc.</td>
+        <td>KAPE_TRIAGE_UI.exe / kape.exe</td>
+        <td>~800 MB</td>
+      </tr>
+      <tr>
+        <td><code>{HOST}-KAPE-...zip.sha256</code> <span class="badge sha">HASH</span></td>
+        <td>SHA-256 del ZIP</td>
+        <td>KAPE_TRIAGE_UI.exe</td>
+        <td>64 bytes</td>
+      </tr>
+      <tr>
+        <td><code>NOTES\{HOST}-NOTES-{YYYYMMDD}.txt</code> <span class="badge note">CONTEXTO</span></td>
+        <td>Notas de la corrida: extensi&oacute;n del ransomware, wallpaper, ransom note, usuarios afectados</td>
+        <td>Operador (durante el drill)</td>
+        <td>~2 KB</td>
+      </tr>
+      <tr>
+        <td><code>NOTES\{HOST}-LOG-{YYYYMMDD}.txt</code> <span class="badge note">CONTEXTO</span></td>
+        <td>Log completo de KAPE_TRIAGE_UI.exe (6 fases, hashes, tiempos)</td>
+        <td>KAPE_TRIAGE_UI.exe</td>
+        <td>~10 KB</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ESXI COMMANDS -->
+<section>
+  <h2><span class="num">03</span>Comandos VMware (ESXi shell / SSH)</h2>
+  <p class="section-sub">Equivalentes CLI a las acciones del vSphere Client. &Uacute;tiles cuando el host ESXi est&aacute; aislado o para automatizar.</p>
+
+  <div class="cmd-grid">
+
+    <div class="cmd-card">
+      <h4>Etapa 2 &middot; Shutdown limpio</h4>
+      <div class="desc">Apagar VM-A desde la CLI del ESXi. Requisito: VMware Tools instalado en guest.</div>
+      <pre><span class="c"># Listar VMs y su ID</span>
+vim-cmd vmsvc/getallvms | awk <span class="k">'NR==1 || $1 ~ /VM-A/'</span>
+
+<span class="c"># Shutdown limpio (no power-off)</span>
+vim-cmd vmsvc/power.off <span class="s">$(vim-cmd vmsvc/getallvms | awk '$2=="VM-A"{print $1}')</span>
+
+<span class="c"># Esperar a poweredOff</span>
+while [ <span class="k">"$(vim-cmd vmsvc/power.getstate &lt;vmid&gt;)"</span> != <span class="s">"Powered off"</span> ]; <span class="k">do</span> sleep 5; <span class="k">done</span></pre>
+    </div>
+
+    <div class="cmd-card">
+      <h4>Etapa 2 &middot; Detach disco</h4>
+      <div class="desc">Remover el VMDK de VM-A sin borrarlo del datastore. <code>-1</code> en SCSI = quitar disco 2.</div>
+      <pre><span class="c"># Ver configuracion actual</span>
+vim-cmd vmsvc/device.getdevices &lt;vmid-A&gt; | grep -A3 <span class="s">"scsi0:1"</span>
+
+<span class="c"># Remover disco (mata el device, conserva el .vmdk)</span>
+vim-cmd vmsvc/device.conn <span class="s">-usb</span> &lt;vmid-A&gt; 2&gt;/dev/null  <span class="c"># refresh</span>
+<span class="c"># vSphere Client: Edit Settings &rarr; SCSI(0:1) &rarr; Remove (no Delete)</span></pre>
+    </div>
+
+    <div class="cmd-card">
+      <h4>Etapa 3 &middot; Attach a VM-B</h4>
+      <div class="desc">Mismo datastore, distinta VM. Existing disk apunta al <code>-flat.vmdk</code>.</div>
+      <pre><span class="c"># Agregar disco existente a VM-B</span>
+vim-cmd vmsvc/device.diskadd &lt;vmid-B&gt; m \
+  <span class="s">"[datastore1] DFIR-OUTPUT/DFIR-OUTPUT.vmdk"</span> \
+  0 1 scsi
+
+<span class="c"># Alternativa: editar .vmx de VM-B y agregar:</span>
+<span class="k">scsi0:1</span>.present = <span class="s">"TRUE"</span>
+<span class="k">scsi0:1</span>.fileName = <span class="s">"DFIR-OUTPUT.vmdk"</span>
+<span class="c"># (respetar path relativo al datastore)</span></pre>
+    </div>
+
+    <div class="cmd-card">
+      <h4>Etapa 3 &middot; Verificar integridad</h4>
+      <div class="desc">Desde VM-B, una vez montada la ISO y el VMDK como read-only.</div>
+      <pre><span class="c"># En PowerShell dentro de VM-B</span>
+Get-ChildItem E:\RAM-*.raw, E:\*KAPE-*.zip |
+  Get-FileHash -Algorithm SHA256 |
+  Format-Table
+
+<span class="c"># Comparar contra los .sha256 companion</span>
+Get-Content E:\RAM-*.raw.sha256
+Get-Content E:\*KAPE-*.zip.sha256</pre>
+    </div>
+
+    <div class="cmd-card">
+      <h4>Etapa 4 &middot; Copia al datastore IR</h4>
+      <div class="desc">Mover el par VMDK al datastore compartido del equipo IR o NAS de custodia.</div>
+      <pre><span class="c"># Desde ESXi shell (datastore origen)</span>
+cp /vmfs/volumes/datastore1/DFIR-OUTPUT/DFIR-OUTPUT*.vmdk \
+   /vmfs/volumes/datastore-IR/INCIDENT-2026-09-28/
+
+<span class="c"># O vCenter Storage vMotion</span>
+<span class="c"># (mantiene el VMDK atomico, recomendado si hay red</span>
+<span class="c">#  entre hosts)</span></pre>
+    </div>
+
+    <div class="cmd-card">
+      <h4>Etapa 4 &middot; Hash del VMDK completo</h4>
+      <div class="desc">Opcional pero recomendado: SHA-256 del VMDK completo para detectar cambio de bits en custodia.</div>
+      <pre><span class="c"># En el ESXi (donde vive el VMDK)</span>
+sha256sum /vmfs/volumes/datastore-IR/INCIDENT-2026-09-28/DFIR-OUTPUT.vmdk
+sha256sum /vmfs/volumes/datastore-IR/INCIDENT-2026-09-28/DFIR-OUTPUT-flat.vmdk
+
+<span class="c"># Tiempo esperado: 1-5 min por archivo de 16 GB.</span></pre>
+    </div>
+
+  </div>
+</section>
+
+<!-- KEY DECISIONS -->
+<section>
+  <h2><span class="num">04</span>Decisiones clave del flujo</h2>
+
+  <dl class="kv">
+    <dt>&iquest;Por qu&eacute; mover el VMDK y no copiar a SMB?</dt>
+    <dd>Una copia a SMB y luego de vuelta mutar&iacute;a timestamps NTFS, <code>$MFT</code>, <code>$LogFile</code>, <code>$UsnJrnl</code> y ADS. El VMDK es el contenedor forense &mdash; viaja &iacute;ntegro entre VMs. Solo en la etapa 4 (entrega) sale de all&iacute;.</dd>
+
+    <dt>&iquest;Por qu&eacute; capturar RAM <em>antes</em> de KapeTriage?</dt>
+    <dd>KapeTriage toca el filesystem en lectura pero KAPE abre handles, escribe <code>.kape</code>, monta VSS, etc. Capturar RAM antes preserva procesos vivos, conexiones, y credenciales en memoria del estado m&aacute;s cercano al incidente. Despu&eacute;s, KapeTriage recolecta artefactos persistentes.</dd>
+
+    <dt>&iquest;Por qu&eacute; shutdown limpio, no power-off?</dt>
+    <dd>Power-off forzado deja el journal NTFS con operaciones pendientes sin flush. El analista ver&iacute;a timestamps de "last mount" corruptos. Shutdown limpia el journal antes de apagar.</dd>
+
+    <dt>&iquest;Por qu&eacute; mount read-only en VM-B?</dt>
+    <dd>Cualquier escritura (incluso mount normal) actualiza <code>$LogFile</code> y <code>$MFT</code> last-access times. <code>Arsenal Image Mounter</code> o <code>FTK Imager</code> con opci&oacute;n read-only preserva timestamps originales &mdash; el analista trabaja sobre una vista est&aacute;tica de la evidencia.</dd>
+
+    <dt>&iquest;Por qu&eacute; la ISO viaja con el disco?</dt>
+    <dd>En VM-B (an&aacute;lisis) el operador puede necesitar <code>Tools\kape.zip</code> para correr EvtxECmd/MFTECmd, o releer el MANUAL_OPERATIVO. Montar el mismo ISO evita arrastrar binarios sueltos. La ISO es read-only por definici&oacute;n (CD-ROM).</dd>
+
+    <dt>&iquest;Qu&eacute; pasa con la red?</dt>
+    <dd>VM-A: <strong>sin red</strong> durante captura (la ISO no necesita red y el ransomware no puede exfiltrar). VM-B: red opcional para descargar definiciones (YARA, IOC feeds), pero el VMDK debe estar montado read-only. VM-C / datastore entrega: red abierta, fuera del segmento de producci&oacute;n.</dd>
+  </dl>
+</section>
+
+<footer>
+  <span>KAPE-MEDIA v5.2.14 &middot; By Cybolt, MIT License &middot; DFIR drill flow</span>
+  <span>VMware ESXi 7/8 &middot; NTFS label <code>DFIR_OUTPUT</code></span>
+</footer>
+
+</main>
+
+</body>
+</html>
