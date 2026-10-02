@@ -1,13 +1,8 @@
 name: Build ISO and publish release
 
-# Se dispara con tag v* o manualmente (workflow_dispatch).
-# Compila las GUIs, genera el ISO desde staging/, calcula SHA-256
-# y crea el Release en este mismo repo (Beacon-Lab-IR/kape-media).
-#
-# Nota: staging/ (Tools/kape.zip, etc.) NO esta en git. Este workflow
-# solo produce un ISO completo si el runner ya tiene staging poblado
-# (p.ej. self-hosted) o si se amplía el job para restaurar ese cache.
-# Flujo recomendado hoy: ./build.sh <ver> + gh release create (manual).
+# Tag v* o workflow_dispatch.
+# Reconstruye staging/: descarga kape.zip desde armeria, extrae kape.exe/Targets,
+# compila GUIs, descarga winpmem, overlay de iso/, genera ISO y publica Release.
 
 on:
   push:
@@ -22,6 +17,12 @@ on:
 
 permissions:
   contents: write
+
+env:
+  KAPE_ZIP_URL: https://github.com/Beacon-Lab-IR/armeria/raw/refs/heads/main/KAPE/kape.zip
+  KAPE_ZIP_SHA256: 92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892
+  WINPMEM_URL: https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe
+  WINPMEM_SHA256: a4d516b6fcaf3b5b1d4ee709ce86f8eabf1d8028b3a83101479b7568b933d21b
 
 jobs:
   build-iso:
@@ -50,10 +51,39 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building v$VERSION"
 
+      - name: Preparar staging base (overlay Cybolt)
+        run: |
+          mkdir -p staging/Tools/Memory
+          cp -a iso/. staging/
+          # VERSION.txt: actualizar cabecera con la version del release
+          {
+            echo "KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso - Version ${{ steps.get_version.outputs.VERSION }}"
+            echo ""
+            echo "Build       : $(date -u +%Y-%m-%d)"
+            tail -n +4 iso/VERSION.txt
+          } > staging/VERSION.txt
+
+      - name: Descargar kape.zip desde armeria
+        run: |
+          mkdir -p staging/Tools /tmp/kape-src
+          curl -fsSL -o staging/Tools/kape.zip "$KAPE_ZIP_URL"
+          actual=$(sha256sum staging/Tools/kape.zip | awk '{print $1}')
+          if [ "$actual" != "$KAPE_ZIP_SHA256" ]; then
+            echo "ERROR: kape.zip SHA-256 mismatch"
+            echo "  expected: $KAPE_ZIP_SHA256"
+            echo "  actual:   $actual"
+            exit 1
+          fi
+          echo "kape.zip OK: $actual"
+          unzip -q staging/Tools/kape.zip -d /tmp/kape-src
+          cp /tmp/kape-src/kape/kape.exe staging/
+          cp -a /tmp/kape-src/kape/Targets staging/
+          cp -a /tmp/kape-src/kape/Documentation staging/
+          ls -lh staging/kape.exe staging/Tools/kape.zip
+
       - name: Compilar KAPE_TRIAGE_UI
         run: |
           dotnet build KapeUi/KapeUi.csproj -c Release
-          mkdir -p staging
           cp KapeUi/bin/Release/KAPE_TRIAGE_UI.exe staging/
 
       - name: Compilar RAM_CAPTURE_UI
@@ -63,47 +93,69 @@ jobs:
 
       - name: Descargar winpmem
         run: |
-          mkdir -p staging/Tools/Memory
-          curl -fsSL -o staging/Tools/Memory/winpmem_mini_x64_rc2.exe \
-            "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe"
-
-      - name: Verificar SHA-256 winpmem
-        run: |
-          expected="a4d516b6fcaf3b5b1d4ee709ce86f8eabf1d8028b3a83101479b7568b933d21b"
+          curl -fsSL -o staging/Tools/Memory/winpmem_mini_x64_rc2.exe "$WINPMEM_URL"
           actual=$(sha256sum staging/Tools/Memory/winpmem_mini_x64_rc2.exe | awk '{print $1}')
-          if [ "$actual" != "$expected" ]; then
+          if [ "$actual" != "$WINPMEM_SHA256" ]; then
             echo "ERROR: winpmem SHA-256 mismatch"
-            echo "  expected: $expected"
+            echo "  expected: $WINPMEM_SHA256"
             echo "  actual:   $actual"
             exit 1
           fi
           echo "winpmem OK: $actual"
 
+      - name: Regenerar SHA256SUMS.txt
+        run: |
+          cd staging
+          {
+            echo "SHA256SUMS - KAPE-MEDIA v${{ steps.get_version.outputs.VERSION }} (build $(date -u +%Y-%m-%d))"
+            echo "============================================="
+            echo ""
+            echo "Archivos criticos (verificar contra ISO despues de montar):"
+            echo ""
+            sha256sum \
+              kape.exe \
+              KAPE_TRIAGE_UI.exe \
+              RAM_CAPTURE_UI.exe \
+              KAPE_TRIAGE.cmd \
+              CHECK_COMPAT.cmd \
+              KAPE_TRIAGE_UI.exe.config \
+              Tools/kape.zip \
+              Tools/Memory/winpmem_mini_x64_rc2.exe \
+              Tools/Memory/CAPTURE_RAM.cmd \
+              LICENSE \
+              MANUAL_OPERATIVO.txt \
+              VERSION.txt
+          } > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Verificar staging completo
         run: |
           missing=0
-          for f in staging/kape.exe staging/MANUAL_OPERATIVO.txt staging/Tools/kape.zip; do
+          for f in \
+            staging/kape.exe \
+            staging/MANUAL_OPERATIVO.txt \
+            staging/Tools/kape.zip \
+            staging/Tools/Memory/winpmem_mini_x64_rc2.exe \
+            staging/Tools/Memory/CAPTURE_RAM.cmd \
+            staging/KAPE_TRIAGE_UI.exe \
+            staging/RAM_CAPTURE_UI.exe
+          do
             if [ ! -e "$f" ]; then
               echo "FALTA: $f"
               missing=1
             fi
           done
+          if [ ! -d staging/Targets ]; then
+            echo "FALTA: staging/Targets"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
-            echo ""
-            echo "ERROR: staging/ incompleto en el runner."
-            echo "Este repo no versiona Tools/kape.zip ni el resto de staging/."
-            echo "Publica el ISO desde tu maquina:"
-            echo "  ./build.sh ${{ steps.get_version.outputs.VERSION }}"
-            echo "  gh release create v${{ steps.get_version.outputs.VERSION }} \\"
-            echo "    --repo Beacon-Lab-IR/kape-media \\"
-            echo "    --title \"KAPE-MEDIA v${{ steps.get_version.outputs.VERSION }}\" \\"
-            echo "    --notes-file - \\"
-            echo "    dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
             exit 1
           fi
           echo "staging OK"
+          du -sh staging
 
-      - name: Instalar herramientas de build ISO
+      - name: Instalar genisoimage
         run: |
           sudo apt-get update
           sudo apt-get install -y genisoimage
@@ -134,8 +186,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
           ISO_SHA: ${{ steps.hash.outputs.ISO_SHA }}
-          ISO_PATH: dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso
         run: |
+          ISO_PATH="dist/KAPE-MEDIA-v${VERSION}.iso"
           NOTES=$(cat <<EOF
           ISO no-booteable para adquisicion DFIR sobre VMware/Proxmox.
 
@@ -165,19 +217,32 @@ jobs:
           By Cybolt, MIT License.
           EOF
           )
-          gh release create "v${VERSION}" \
-            --repo "${{ github.repository }}" \
-            --title "KAPE-MEDIA v${VERSION}" \
-            --notes "${NOTES}" \
-            "${ISO_PATH}"
+          if gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} ya existe: subiendo asset con --clobber"
+            gh release upload "v${VERSION}" "${ISO_PATH}" \
+              --repo "${{ github.repository }}" --clobber
+            gh release edit "v${VERSION}" \
+              --repo "${{ github.repository }}" \
+              --notes "${NOTES}"
+          else
+            gh release create "v${VERSION}" \
+              --repo "${{ github.repository }}" \
+              --title "KAPE-MEDIA v${VERSION}" \
+              --notes "${NOTES}" \
+              "${ISO_PATH}"
+          fi
 
       - name: Tag en workflow_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.get_version.outputs.VERSION }}" || true
-          git push origin "v${{ steps.get_version.outputs.VERSION }}" || true
+          if git rev-parse "v${{ steps.get_version.outputs.VERSION }}" >/dev/null 2>&1; then
+            echo "Tag ya existe"
+          else
+            git tag "v${{ steps.get_version.outputs.VERSION }}"
+            git push origin "v${{ steps.get_version.outputs.VERSION }}"
+          fi
 
       - name: Resumen
         if: success()

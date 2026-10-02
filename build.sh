@@ -23,6 +23,13 @@ fi
 
 echo ">>> Building KAPE-MEDIA v$VERSION"
 
+# 0) Overlay Cybolt (iso/) si existe
+if [ -d iso ]; then
+    echo ">>> Copiando iso/ -> staging/"
+    mkdir -p staging/Tools/Memory
+    cp -a iso/. staging/
+fi
+
 # 1) Compilar las dos GUIs
 echo ">>> Compilando KAPE_TRIAGE_UI..."
 dotnet build KapeUi/KapeUi.csproj -c Release --nologo

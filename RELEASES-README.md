@@ -33,33 +33,35 @@ Web: https://github.com/Beacon-Lab-IR/kape-media/releases/latest
 
 ## Como publicar un release
 
-### Opcion A: Manual con gh CLI (recomendado)
+### Opcion A: GitHub Actions (recomendado)
 
-`staging/` (incluye `Tools/kape.zip` ~553 MB) no esta en git. Genera el ISO
-en tu maquina y subilo como Release:
+Workflow: `.github/workflows/release.yml`
+
+1. Actions → **Build ISO and publish release** → Run workflow
+2. O push de un tag: `git tag v5.2.19 && git push origin v5.2.19`
+
+El job:
+- Copia `iso/` (scripts/manual Cybolt) a `staging/`
+- Descarga `kape.zip` desde `Beacon-Lab-IR/armeria` (`KAPE/kape.zip`) y verifica SHA-256
+- Extrae `kape.exe`, `Targets/`, `Documentation/`
+- Compila las dos GUIs y descarga winpmem
+- Genera el ISO y crea/actualiza el Release en este repo
+
+No hace falta secret extra: usa `GITHUB_TOKEN`.
+
+### Opcion B: Manual con gh CLI
+
+Si tenes `staging/` local completo:
 
 ```bash
-cd /path/to/kape-media
-
 ./build.sh 5.2.19
 
 gh release create v5.2.19 \
     --repo Beacon-Lab-IR/kape-media \
     --title "KAPE-MEDIA v5.2.19" \
-    --notes "Ver RELEASES-README / README" \
+    --notes "SHA en output de build.sh" \
     dist/KAPE-MEDIA-v5.2.19.iso
 ```
-
-### Opcion B: GitHub Actions
-
-Hay un workflow en `.github/workflows/release.yml` (tag `v*` o
-`workflow_dispatch`). Compila las GUIs, descarga winpmem y publica el
-Release en este mismo repo con `GITHUB_TOKEN`.
-
-**Limitacion:** en `ubuntu-latest` falla si `staging/` no esta completo
-(falta `kape.exe`, `Tools/kape.zip`, etc.). Solo sirve tal cual en un
-runner que ya tenga ese staging, o cuando se agregue un paso para
-restaurarlo. Hasta entonces, usa la opcion A.
 
 ## Como verificar integridad
 

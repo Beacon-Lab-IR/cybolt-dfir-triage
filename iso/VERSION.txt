@@ -1,0 +1,263 @@
+KAPE-MEDIA-v5.2.18.iso - Version 5.2.18
+
+Build       : 2026-09-23
+Plataforma  : Windows (.NET Framework 4.5.2+)
+KAPE        : 1.3.0.2 (Kroll Cyber)
+
+Cambios en esta version:
+  - (v5.2.18) FIX CRITICO: si el .raw quedo escrito al >=95% de la RAM
+                  fisica total, la captura se considera exitosa pese a
+                  exit code != 0 de winpmem. Bug observado 2026-09-30:
+                  el archivo de la GUI "fallida" midio 6,291,456 KB
+                  (6 GiB exactos), identico al manual exitoso desde cmd
+                  (mismo size). v5.2.17 (y anteriores) reportaban error
+                  aunque la captura fuera valida. v5.2.18 loguea una
+                  advertencia, continua con SHA-256 y trata la captura
+                  como exitosa. Operador ya no descarta evidencia valida.
+  - (v5.2.17) MEJORA: checkbox opt-in "Ejecutar via cmd.exe wrapper".
+                  Cuando esta marcado, la GUI lanza cmd.exe /c winpmem.exe
+                  en vez del .exe directo. Esto replica el comportamiento
+                  de cmd interactivo (donde winpmem corre limpio, validado
+                  drill 2026-09-30 con DESKTOP-3GUGLTM, 6 GB: manual OK,
+                  GUI directa exit 1, GUI wrapper OK). Usar si Defender
+                  u otro AV bloquea el .raw durante la captura.
+  - (v5.2.16) MEJORA: el diagnostico de error de winpmem ahora se escribe
+                  dentro del TextBox de log de la GUI (no solo en popup)
+                  y hay boton "Copiar log" que lo manda al portapapeles
+                  con header estructurado (hostname, fecha, SO, output
+                  path) listo para pegar en el ticket. Operador ya no
+                  pierde el contexto al cerrar el popup.
+  - (v5.2.15) FIX: diagnostico de errores en RAM_CAPTURE_UI. v5.2.14 mostraba
+                  "winpmem termino con exit code 1" sin contexto. Bug
+                  observado en drill 2026-09-30 con VM DESKTOP-3GUGLTM:
+                  .raw se escribio a 6.00 GiB (RAM completa) pero winpmem
+                  salio con exit 1 sin stdout en la UI. v5.2.15 captura
+                  stdout/stderr en strings, detecta archivo parcial,
+                  muestra ultimas 25 lineas y causas comunes (Defender,
+                  LSASS Protection, GPO, disco lleno). Tambien fix
+                  cosmético del label RAM y deteccion mas precisa via
+                  Win32_PhysicalMemory (suma de sticks).
+  - (v5.2.14) NUEVO: RAM_CAPTURE_UI.exe - GUI WinForms para captura de RAM
+                  con winpmem_mini_x64_rc2.exe. Auto-detecta CD-ROM y
+                  disco de salida (label DFIR_OUTPUT), valida espacio,
+                  parsea progreso de winpmem al ProgressBar, calcula
+                  SHA-256 nativo .NET al final. El batch CAPTURE_RAM.cmd
+                  se mantiene como fallback.
+  - (v5.2.13) NUEVO: Captura de RAM standalone (Opcion B batch) + LICENSE
+                  MIT + "By Cybolt". v5.2.14 agrega GUI encima.
+  - (v5.2.12) FIX: SHA-256 nativo .NET en lugar de certutil. Bug
+                  observado en drill 2026-09-25 con v5.2.11: el ZIP
+                  se generaba correctamente (803 MB) pero el SHA-256
+                  automatico en la UI fallaba porque mi regex buscaba
+                  64 hex chars continuos en una sola linea y
+                  certutil -hashfile formatea el hash con espacios
+                  cada 2 chars en varias lineas. ComputeSha256
+                  retornaba null aunque certutil hubiera calculado
+                  bien. UI mostraba "LISTO. ZIP: 803 MB | SHA-256:
+                  ERROR" en la fase 5. Fix: reemplazar certutil
+                  externo por System.Security.Cryptography.SHA256
+                  nativo de .NET. Streaming (no carga el archivo
+                  completo en memoria), sin subprocess, formato
+                  estable lowercase 64 hex chars, ~3x mas rapido.
+
+  - (v5.2.11) FIX CRITICO: KAPE stdin close. Bug observado en drill
+                  2026-09-24 con v5.2.10: KAPE terminaba la copia y la
+                  compresion ZIP correctamente, pero kape.exe se quedaba
+                  vivo en Console.ReadKey() esperando una tecla (prompt
+                  "Press any key to exit"). El flag --gui que pasamos no
+                  suprime ese prompt en KAPE 1.3.0.2. Resultado:
+                  _kapeProcess.WaitForExit() nunca retornaba, la UI
+                  quedaba congelada en fase 3 ("Recolectar artefactos")
+                  aunque el ZIP ya estaba generado en disco.
+                  Fix: ProcessStartInfo.RedirectStandardInput = true y
+                  cerrar el pipe inmediatamente despues de Process.Start():
+                    _kapeProcess.StandardInput.Close();
+                  Console.ReadKey() en KAPE ve EOF en stdin y retorna
+                  -1 inmediato, kape.exe sale del Main() con exit code 0,
+                  WaitForExit() desbloquea y la UI continua a fase 4/5/6
+                  y muestra "LISTO. ZIP: X GB | SHA-256: ...".
+
+  - (v5.2.11) FIX COSMETICO: AppInfo.Version quedaba en "5.2.9" en
+                  el binario v5.2.10 (solo el header doc se actualizo a
+                  v5.2.10). Por eso la UI mostraba "v5.2.9" aunque
+                  tuviera los fixes de v5.2.10. Ahora AppInfo.Version =
+                  "5.2.11" y la UI muestra la version correcta en
+                  titulo, footer y log de inicio.
+
+  - (v5.2.10) FIX COSMETICO: bug .zip.zip en nombre del archivo ZIP.
+                  KAPE 1.3.0.2 toma el valor de --zip, extrae el basename
+                  y le agrega sufijo .zip por su cuenta. Si le pasamos un
+                  valor ya terminado en .zip, el archivo final sale con
+                  doble sufijo (.zip.zip). Observado en corrida 2026-09-23
+                  con v5.2.7 (output real: ...E__WIN10-A-KAPE-...zip.zip).
+                  Fix: en BuildDefaultKapeArgs NO concatenar ".zip" al
+                  outZip. KAPE produce ahora
+                  {tdest}\{timestamp}_E__{basename}.zip (un solo .zip).
+
+  - (v5.2.10) FIX LOGICO: post-KAPE ZIP detection. El archivo REAL
+                  generado por KAPE NO esta en el path que pasamos a --zip
+                  (esa era la otra falla silenciosa de v5.2.9). KAPE
+                  siempre escribe el ZIP dentro de --tdest con timestamp
+                  prefix. Antes: File.Exists(_outZip) siempre fallaba
+                  aunque el ZIP existiera, y la UI mostraba "ERROR: no
+                  se genero el ZIP" sin que el operador supiera que el
+                  archivo SI estaba ahi. Ahora: buscar por patron
+                  {tdest}\*_E__{hostname}-KAPE-*.zip, reasignar _outZip
+                  al path real, y continuar con SHA-256. El hash ZIP
+                  post-correccion SI corresponde al archivo que el
+                  operador tiene que entregar al equipo DFIR.
+
+  - (v5.2.9) FIX: SHA-256 verification del kape.exe staged.
+                  Despues del staging, computamos SHA-256 del
+                  E:\_kape_stage\kape.exe y lo logueamos en el log
+                  en vivo y en NOTES (con size + expected SHA-256).
+                  El operador compara contra KAPE-MEDIA-INFO.txt
+                  (expected 6167472179d0b5b028560dcc84ea1a2e3cb2d71
+                  28dd18e4e9278263b86a4318b). Si KAPE fue reempaquetado
+                  por alguien con un ISO modificado, el hash difiere
+                  y lo detecta. Tambien documenta cadena de custodia:
+                  el ZIP final sale de este kape.exe especifico.
+
+  - (v5.2.9) FIX: staging skip-if-cached. Si E:\_kape_stage\
+                  kape.exe y E:\_kape_stage\Targets\Compound\
+                  KapeTriage.tkape ya existen con el mismo tamano
+                  que en el ISO, no re-copiamos nada (~50 MB
+                  ahorrados, ~30s en SSD). Segunda VM del mismo
+                  drill arranca staging en <1s.
+
+                  FIX: --vss. KAPE crea un VSS snapshot de C: al
+                  final del target processing y reintenta los archivos
+                  deferred (Application.evtx, Defender logs, etc.)
+                  desde el snapshot. Sin --vss, los archivos locked
+                  se quedan out del ZIP final, perdiendo event logs
+                  criticos para DFIR.
+
+  - (v5.2.9) FIX CRITICO: Targets staging. v5.2.6 dejo KAPE
+                  corriendo desde E:\_kape_stage\kape.exe pero fallo con
+                  "Target KapeTriage not found" porque --targetdir
+                  seguia apuntando a D:\Targets. Algo en la cadena D:→E:
+                  rompe la resolucion de sub-targets cuando KAPE corre
+                  desde E:. Ahora copiamos el arbol Targets/ completo
+                  (recursivo, ~50 MB) a E:\_kape_stage\Targets\ durante
+                  el staging, y --targetdir apunta a E:\_kape_stage\.
+                  KAPE busca E:\_kape_stage\Compound\KapeTriage.tkape
+                  y resuelve sub-targets contra E:\_kape_stage\. Todo
+                  en E:, nada en D:.
+
+  - (v5.2.6) FIX: staging read-only recovery. Cuando
+                  E:\_kape_stage\kape.exe queda de una corrida previa con
+                  FILE_ATTRIBUTE_READONLY (Windows Defender/AV marca el
+                  .exe al escanear), File.Copy(..., true) revienta con
+                  UnauthorizedAccessException. Ahora: limpiamos atributos
+                  y borramos el destino antes de copiar, con retry de 3
+                  intentos y 500ms entre cada uno.
+
+  - (v5.2.5) FIX CRITICO: KAPE --sync $Null. KAPE en proceso (no CMD)
+                  interpreta "$Null" como filename literal y falla con
+                  "Could not find file 'E:\_kape_stage\$Null'". Sacamos
+                  --sync de los args default. Sin --sync KAPE no intenta
+                  descargar nada (correcto para nuestro caso offline).
+
+                  FIX CRITICO: textbox override + trailing slash.
+                  - Track _cmdEdited: el textbox del acordeon "Comando
+                    KAPE (avanzado)" se respeta SOLO si el operador
+                    TECLEO algo. Antes: el contenido del textbox podia
+                    ser el cache del pre-flight (con paths sin "\" en
+                    tdest/zip) y se pasaba tal cual a KAPE. Resultado:
+                    --tdest "E:WIN10-A-..." sin "\" y KAPE fallaba.
+                  - Trailing slash se agrega en el pre-flight mismo, no
+                    solo en RunAcquisitionAsync.
+                  - ComboBox.SelectedIndexChanged dispara
+                    OnDriveSelectionChanged que re-normaliza y refresca
+                    el preview (solo si el operador no lo edito).
+                  - Cache de _time en RunAcquisitionAsync. Antes
+                    BuildDefaultKapeArgs recalculaba time en cada llamada
+                    y daba 1 segundo de drift entre el nombre en NOTES
+                    y el nombre en args.
+
+  - (v5.2.4) FIX CRITICO: KAPE staging. Antes kape.exe se lanzaba directo
+                  desde D:\kape.exe (CD-ROM read-only del ISO). KAPE en su
+                  CheckDefaultDirectories() crea Modules\bin y .kape bajo
+                  Path.GetDirectoryName(Assembly.Location), o sea, debajo
+                  del directorio donde esta el .exe. Como D: es read-only,
+                  fallaba con:
+                    System.UnauthorizedAccessException: (5) Access is
+                    denied: [D:]
+                       at kape.Program.CheckDefaultDirectories()
+                       at kape.Program.Main(String[] args)
+                  Ahora copiamos D:\kape.exe -> E:\_kape_stage\kape.exe
+                  y lanzamos desde ahi. E: (label DFIR_OUTPUT) es NTFS
+                  escribible, asi que CheckDefaultDirectories() corre OK.
+                  --targetdir sigue apuntando a D:\Targets (read-only
+                  esta bien, KAPE solo lee).
+
+                  Tambien fix del textbox del acordeon "Comando KAPE
+                  (avanzado)": antes, si el operador clickeaba Ejecutar
+                  antes de que el Invoke() del pre-flight refrescara el
+                  preview, el comando pasado era el placeholder
+                  "(selecciona...)". Ahora BuildDefaultKapeArgs() se
+                  llama on-the-fly dentro de RunAcquisitionAsync, asi
+                  que SIEMPRE usa los valores actuales de los ComboBox
+                  cuando el textbox esta vacio.
+
+                  Path join fix: _outputDrive ya termina en "\", asi que
+                  los paths NO agregan otro "\". Antes quedaba
+                  "E:\\WIN10-A-..." con doble slash.
+
+  - (v5.2.2) UI: manifest con requestedExecutionLevel=requireAdministrator.
+                  El .exe ahora FUERZA UAC al arrancar. Si el usuario
+                  no es admin, Windows muestra el prompt antes de
+                  cargar la UI. Antes el .exe arrancaba sin admin y
+                  KAPE reventaba a mitad con "Access denied" sobre
+                  archivos del sistema (event logs, registry hives,
+                  ScheduledTasks XML, etc).
+
+                  KAPE args: sacamos --moduledir y --mdest. Esos flags
+                  apuntaban a "{iso_dir}\Modules" y "{output_drive}\
+                  \Modules". El primero fallaba porque D: (CD-ROM) es
+                  read-only. Con solo --target KapeTriage no usamos
+                  modulos pre-compilados. Los KapeFiles Targets no
+                  requieren modulos.
+
+  - (v5.2.1) UI: ISO montada pasa de TextBox read-only a Label plano.
+                  Sacamos radio buttons VM01/VM02 (herramienta generica,
+                  naming por hostname + fecha + hora). Sacamos la barra
+                  de progreso verde y los botones "Copiar log" /
+                  "Abrir carpeta salida".
+
+  - (v5.2.0) UI: ComboBoxes para "Particion de salida" y "Particion
+                  fuente". Boton azul Ejecutar anclado al fondo,
+                  siempre visible (fuera del scroll).
+
+  - (v5.1.2) UI: layout envuelto en Panel.AutoScroll. Bloque amarillo
+                  con pasos Proxmox cuando no hay disco DFIR_OUTPUT.
+
+  - (v5.1.1) UI: ventana 1180x820, layout rebalanceado.
+
+  - (v5.1.0) UI mejorada: log prominente, 6 fases con checkmarks,
+                  auto-save del log en DFIR_OUTPUT:\NOTES\.
+
+  - (v5.0.0) UI visual con KAPE_TRIAGE_UI.exe (WinForms, .NET 4.5.2).
+  - (v4.x)   Tools/kape.zip completo incluido (553 MiB).
+  - (v3.x)   CHECK_COMPAT.cmd pre-flight.
+  - (v2.x)   KAPE_TRIAGE.cmd unificado.
+  - (v1.x)   Estructura base.
+
+Componentes:
+  - kape.exe                  KAPE 1.3.0.2 (CLI)
+  - KAPE_TRIAGE_UI.exe        Interfaz visual (WinForms, .NET 4.5.2) - v5.2.13
+  - RAM_CAPTURE_UI.exe        GUI captura RAM con winpmem (WinForms, .NET 4.5.2) - v5.2.17
+  - KAPE_TRIAGE.cmd           Script batch equivalente
+  - CHECK_COMPAT.cmd          Verificador de requisitos
+  - Targets/                  Catalogo de KapeFiles Targets
+  - Tools/kape.zip            Distribucion KAPE completa original
+  - Documentation/             EULA y notas del paquete original
+  - README.txt                Guia rapida
+  - MANUAL_OPERATIVO.txt      Manual completo en espanol
+  - SHA256SUMS.txt            Hashes de los archivos criticos
+  - VERSION.txt               Este archivo
+
+Compatibilidad:
+  Windows 7 SP1+, 8/8.1, 10/11
+  Windows Server 2008 R2 SP1+, 2012/2012 R2, 2016/2019/2022
+  Requiere .NET Framework 4.5.2 (Win8+; instalable en Win7 via KB2934520)

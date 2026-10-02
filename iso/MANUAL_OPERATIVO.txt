@@ -1,0 +1,513 @@
+================================================================================
+  MANUAL OPERATIVO — Adquisicion DFIR con KAPE sobre hipervisor (PVE/ESXi)
+  Caso: ransomware en VMs Windows (sin red durante la adquisicion)
+================================================================================
+
+Este manual es la REFERENCIA COMPLETA del procedimiento. Si el operador
+quiere ir rapido, siga el README.txt (version de un solo doble-clic).
+
+--------------------------------------------------------------------------------
+0. VERSION DEL PAQUETE
+--------------------------------------------------------------------------------
+KAPE-MEDIA ISO v5.2.17 (build 2026-09-23)
+
+  - KAPE 1.3.0.2 (Kroll Cyber, enero 2024, .NET Framework 4.5.2)
+  - KAPE_TRIAGE_UI.exe: interfaz visual WinForms .NET 4.5.2 - v5.2.13
+  - RAM_CAPTURE_UI.exe: GUI para captura de RAM con winpmem - v5.2.17
+  - KAPE_TRIAGE.cmd: script batch equivalente (mismo flujo, modo consola)
+  - CHECK_COMPAT.cmd: pre-flight de compatibilidad
+  - Tools/kape.zip: distribucion KAPE completa original (553 MiB)
+  - Tools/Memory/winpmem_mini_x64_rc2.exe: captura de RAM (Velocidex v4.0.rc1)
+  - Tools/Memory/CAPTURE_RAM.cmd: wrapper batch (fallback si GUI no aplica)
+  - LICENSE: MIT License - Copyright (c) 2026 Cybolt
+
+Cambios criticos de v5.2.18:
+  - FIX CRITICO: si el archivo .raw quedo escrito al >=95% de la RAM
+    fisica total, la captura se considera exitosa pese a exit code
+    != 0 de winpmem. Caso observado 2026-09-30 con VM DESKTOP-3GUGLTM:
+    la captura via GUI midio 6,291,456 KB (6 GiB exactos), identica
+    al manual exitoso desde cmd (mismo size). v5.2.17 y anteriores
+    reportaban ERROR aunque la captura fuera valida. v5.2.18 loguea
+    una advertencia explicando la situacion y los criterios para
+    reintentar (cmd.exe wrapper), luego continua con SHA-256 y
+    escribe el companion .sha256 normalmente. El operador ya no
+    descarta evidencia buena pensando que fallo.
+
+Cambios criticos de v5.2.17:
+  - MEJORA: checkbox opt-in "Ejecutar via cmd.exe wrapper" en la GUI.
+    Cuando esta marcado, la GUI lanza `cmd.exe /c winpmem.exe ...` en
+    vez del .exe directo via Process.Start. Esto replica exactamente
+    lo que el operador hace en cmd interactivo, donde winpmem corre
+    limpio. Caso de uso: cuando Defender u otro AV bloquea el .raw
+    durante la captura desde el proceso .NET (sintoma: exit 1 al
+    85-92% con .raw escrito al ~85%, "Driver Unloaded" no aparece).
+    Validado en drill 2026-09-30 con DESKTOP-3GUGLTM (6 GB RAM):
+    manual cmd OK 6 GiB, GUI directa exit 1, GUI wrapper OK.
+  - TRUCO ALTERNATIVO: si el wrapper sigue fallando, agregar exclusiones
+    de Defender en la VM:
+      Add-MpPreference -ExclusionProcess "RAM_CAPTURE_UI.exe"
+      Add-MpPreference -ExclusionProcess "winpmem_mini_x64_rc2.exe"
+      Add-MpPreference -ExclusionPath "E:\\"
+      Add-MpPreference -ExclusionPath "D:\\Tools\\Memory"
+
+Cambios criticos de v5.2.16:
+  - MEJORA: el diagnostico de error de winpmem se escribe dentro del
+    TextBox de log de la GUI (no se pierde al cerrar el popup) y se
+    agrega boton "Copiar log" que lo manda al portapapeles con un
+    header estructurado (hostname, fecha/hora, SO, usuario, output path,
+    binario, espacio libre, ultimas 25 lineas de stdout/stderr, info
+    del archivo .raw parcial, causas comunes del exit code). El operador
+    pega el contenido al ticket sin tener que hacer screenshot.
+
+Cambios criticos de v5.2.15:
+  - FIX: Diagnostico de errores en RAM_CAPTURE_UI. v5.2.14 mostraba
+    "winpmem termino con exit code 1" sin contexto. Bug observado en
+    drill 2026-09-30 con VM DESKTOP-3GUGLTM (6 GB RAM, Windows 10):
+    el .raw se escribio a 6.00 GiB (RAM completa) pero winpmem salio
+    con exit 1 sin stdout en la UI. v5.2.15 captura stdout/stderr de
+    winpmem en strings, detecta archivo parcial, muestra las ultimas
+    25 lineas de cada stream y lista causas comunes del exit code
+    (Defender/AV, LSASS Protection, GPO restringiendo drivers, disco
+    lleno). Tambien arregla label cosmético "5.00 GB (4 GB)" que
+    mostraba dos conversiones inconsistentes, ahora usa
+    FormatBytes() con Win32_PhysicalMemory (suma de sticks, mas
+    preciso que Win32_ComputerSystem.TotalPhysicalMemory).
+
+Cambios criticos de v5.2.14:
+  - NUEVO: RAM_CAPTURE_UI.exe - GUI WinForms para captura de RAM.
+    Auto-detecta letra del CD-ROM donde esta Tools\Memory\winpmem_mini_x64_rc2.exe,
+    auto-detecta particion de salida por label DFIR_OUTPUT (con ComboBox
+    de fallback si hay varias), muestra hostname/fecha/RAM total detectada,
+    valida espacio libre (RAM + 10% overhead) con confirmacion, lanza
+    winpmem con Process redirigido (stdout/stderr al TextBox de log),
+    parsea lineas de progreso de winpmem para actualizar ProgressBar,
+    al terminar calcula SHA-256 con System.Security.Cryptography.SHA256
+    nativo (.NET) y escribe archivo companion .sha256. Boton Cancelar
+    mata el proceso winpmem en vuelo. Boton Verificar SHA-256 permite
+    re-calcular el hash post-captura.
+  - MEJORA: CAPTURE_RAM.cmd (batch) se mantiene como fallback. Si el
+    entorno no permite GUI (RDP limitado, SSH-only), el batch hace lo
+    mismo sin interfaz.
+
+Cambios criticos de v5.2.13:
+  - NUEVO: Captura de RAM standalone (Opcion B sin GUI). Antes de
+    correr la UI de KapeTriage, el operador puede ejecutar
+    Tools\Memory\CAPTURE_RAM.cmd desde la VM afectada como
+    Administrator. El script valida admin, ejecuta
+    winpmem_mini_x64_rc2.exe y vuelca la RAM a E:\RAM-<HOSTNAME>-
+    <DATE>.raw con SHA-256 certutil. Sin segunda GUI, sin red,
+    misma cadena de custodia (artefacto en el mismo VMDK de salida).
+  - NUEVO: LICENSE MIT con Copyright (c) 2026 Cybolt + atribucion
+    "By Cybolt" en header de Program.cs y archivos clave.
+
+Cambios criticos de v5.2.12:
+  - FIX: SHA-256 nativo .NET en lugar de certutil. Bug observado en
+    drill 2026-09-25 con v5.2.11: el ZIP se generaba correctamente
+    pero el SHA-256 automatico fallaba porque mi regex buscaba 64
+    hex chars continuos y certutil -hashfile formatea con espacios
+    cada 2 chars. UI mostraba "SHA-256: ERROR" aunque certutil
+    hubiera calculado bien. Fix: System.Security.Cryptography.SHA256
+    nativo, streaming, sin subprocess, ~3x mas rapido.
+
+Cambios criticos de v5.2.11:
+  - FIX CRITICO: KAPE stdin close. Bug observado en drill 2026-09-24
+    con v5.2.10: KAPE terminaba la copia y la compresion ZIP
+    correctamente, pero kape.exe se quedaba vivo en Console.ReadKey()
+    esperando una tecla (prompt "Press any key to exit"). El flag
+    --gui no suprime ese prompt en KAPE 1.3.0.2. Resultado: la UI
+    quedaba congelada en fase 3 aunque el ZIP ya estaba generado.
+    Fix: ProcessStartInfo.RedirectStandardInput = true + cerrar el
+    pipe inmediatamente despues de Process.Start(). KAPE ve EOF,
+    ReadKey retorna -1, sale del Main() con exit code 0,
+    WaitForExit() desbloquea y la UI continua a fase 4/5/6.
+  - FIX COSMETICO: AppInfo.Version = "5.2.11". En v5.2.10 solo se
+    habia actualizado el header doc pero no la constante, por eso
+    la UI mostraba "v5.2.9" aunque tuviera los fixes de v5.2.10.
+
+Cambios criticos de v5.2.10:
+  - Fix cosmetico .zip.zip. KAPE 1.3.0.2 toma el valor de --zip,
+    extrae el basename y le agrega sufijo .zip por su cuenta. Si
+    le pasamos un valor ya terminado en .zip, el archivo final sale
+    con doble sufijo (.zip.zip). Observado en corrida 2026-09-23
+    con v5.2.7 (output: ...E__WIN10-A-KAPE-...zip.zip). Fix: NO
+    concatenar ".zip" en BuildDefaultKapeArgs. KAPE produce ahora
+    {tdest}\{timestamp}_E__{basename}.zip (un solo .zip).
+  - Fix logico: post-KAPE ZIP detection. KAPE siempre escribe el ZIP
+    dentro de --tdest con timestamp prefix, NO en el path que pasamos
+    a --zip. v5.2.9 hacia File.Exists(_outZip) que siempre fallaba
+    aunque el ZIP existiera, mostrando "ERROR: no se genero el ZIP"
+    falsamente. v5.2.10 busca por patron {tdest}\*_E__{hostname}-
+    KAPE-*.zip, reasigna _outZip al path real y continua con SHA-256.
+    El hash ZIP post-correccion SI corresponde al archivo a entregar.
+
+Cambios criticos de v5.2.9:
+  - SHA-256 verification del kape.exe staged. Despues del staging
+    computamos SHA-256 del E:\_kape_stage\kape.exe y lo logueamos
+    en NOTES (con size + expected SHA-256). El operador compara
+    contra KAPE-MEDIA-INFO.txt. Si KAPE fue reempaquetado por
+    alguien con un ISO modificado, el hash difiere y lo detecta.
+    Tambien documenta cadena de custodia.
+
+Cambios criticos de v5.2.8:
+  - Staging skip-if-cached. Si E:\_kape_stage\kape.exe y E:\_kape_stage
+    \Targets\Compound\KapeTriage.tkape ya existen con el mismo
+    tamano que en el ISO, no re-copiamos nada (~50 MB ahorrados).
+    Segunda VM del mismo drill arranca staging en <1s.
+  - --vss. KAPE crea un VSS snapshot de C: al final del target
+    processing y reintenta los archivos deferred (Application.evtx,
+    Defender logs, etc.) desde el snapshot. Sin --vss, los archivos
+    locked se quedan out del ZIP final.
+
+Cambios criticos de v5.2.7:
+  - Targets staging. v5.2.6 dejo KAPE corriendo desde E:\\_kape_stage
+    \\kape.exe pero fallo con "Target KapeTriage not found" porque
+    --targetdir seguia apuntando a D:\\Targets. Ahora copiamos el
+    arbol Targets/ completo (recursivo, ~50 MB) a E:\\_kape_stage
+    \\Targets\\ durante el staging, y --targetdir apunta a
+    E:\\_kape_stage\\. KAPE busca E:\\_kape_stage\\Compound\\
+    KapeTriage.tkape y resuelve sub-targets contra E:\\_kape_stage\\.
+    Todo en E:, nada en D:.
+
+Cambios criticos de v5.2.6:
+  - Staging read-only recovery. Cuando E:\_kape_stage\kape.exe queda
+    de una corrida previa con FILE_ATTRIBUTE_READONLY (Windows
+    Defender/AV marca el .exe al escanear), File.Copy(..., true)
+    revienta con UnauthorizedAccessException. Ahora: limpiamos
+    atributos y borramos el destino antes de copiar, con retry de 3
+    intentos y 500ms entre cada uno.
+
+Cambios criticos de v5.2.5:
+  - KAPE --sync $Null removido. KAPE en proceso (no CMD) interpreta
+    "$Null" como filename literal y falla con:
+      Could not find file 'E:\_kape_stage\$Null'.
+    Sin --sync KAPE no intenta descargar nada (correcto para offline).
+  - Textbox override con _cmdEdited: el textbox del acordeon "Comando
+    KAPE (avanzado)" se respeta SOLO si el operador TECLEO algo. Antes:
+    el contenido cacheado del pre-flight (con paths sin "\" en tdest/zip)
+    se pasaba tal cual a KAPE.
+  - Trailing slash normalizado en pre-flight y ComboBox event handler.
+  - Cache de _time evita drift de 1 segundo entre nombre en NOTES
+    y nombre en args.
+
+Cambios criticos de v5.2.4:
+  - KAPE staging: el .exe se copia D:\kape.exe -> E:\_kape_stage\kape.exe
+    antes de lanzar. KAPE escribe Modules\bin y .kape bajo el directorio
+    donde esta el .exe. Si esta en D: (CD-ROM read-only), falla con
+    UnauthorizedAccessException (5) Access is denied: [D:]. Stageando a
+    E: (NTFS escribible) se resuelve.
+  - BuildDefaultKapeArgs() on-the-fly: el textbox del acordeon "Comando
+    KAPE (avanzado)" ya no queda con placeholder cuando el operador
+    clickea Ejecutar antes del primer refresh del preview.
+  - Path join fix: paths en notas y ZIPs ya no tienen "\\" doble.
+
+El contenido completo y los hashes estan en VERSION.txt y SHA256SUMS.txt
+dentro de esta misma ISO.
+
+--------------------------------------------------------------------------------
+1. PROPOSITO Y ALCANCE
+--------------------------------------------------------------------------------
+Recolectar evidencia forense de VMs Windows afectadas por ransomware, sin
+conectividad de red durante la adquisicion y sin causar mas cifrado.
+Resultado final: uno o mas ZIPs (.zip) + sus hashes SHA-256 + un archivo
+de notas por VM, entregados al equipo de respuesta.
+
+--------------------------------------------------------------------------------
+1.5 COMPATIBILIDAD DE SISTEMAS OPERATIVOS
+--------------------------------------------------------------------------------
+KAPE 1.3.0.2 es una aplicacion .NET Framework 4.5.2. Funciona en:
+
+  Windows 11 (todos los builds actuales)
+  Windows 10 (1809+)
+  Windows 8.1, Windows 8
+  Windows 7 SP1 (con .NET 4.5.2 instalado)
+  Windows Server 2022 / 2019 / 2016 / 2012 R2 / 2012
+  Windows Server 2008 R2 SP1 (con .NET 4.5.2 instalado)
+
+Notas importantes:
+- Win7 SP1 viene por defecto con .NET 4.0, no 4.5.2. KAPE no arranca
+  hasta que se instale .NET 4.5.2 via Windows Update KB2934520.
+  Use CHECK_COMPAT.cmd para validar antes de correr KAPE_TRIAGE.
+- PowerShell 2.0 viene en Win7 por defecto y es suficiente para el
+  script. PowerShell 3.0+ recomendado.
+- wmic esta deprecated en Win11 24H2 pero sigue funcional en todos
+  los builds actuales. Si en algun momento desaparece, use el modo
+  manual descrito en la seccion 7.
+- Si la VM es Windows XP o Vista, KAPE no esta soportado. Necesita
+  otro metodo (live CD linux + FTK Imager o similar).
+
+Antes de correr KAPE_TRIAGE_UI.exe, abra la UI y verifique el pre-flight
+(los checks aparecen en verde "OK" o rojo "FAIL"). Si todo OK, el boton
+"Ejecutar adquisicion" se habilita.
+
+--------------------------------------------------------------------------------
+2. RIESGOS Y PRECAUCIONES (lea antes de tocar nada)
+--------------------------------------------------------------------------------
+- NO conecte ninguna NIC. "Connected" = NO, "Connect at power on" = NO.
+- NO habilite RDP, SMB, WinRM, SSH ni consola remota.
+- NO conecte shares NFS/SMB/iSCSI desde el host hipervisor hacia la VM.
+- NO use USB passthrough. Todo entra por la ISO montada como CD/DVD.
+- NO inicie sesion con cuentas privilegiadas innecesarias.
+- NO ejecute chkdsk, repair, cleanup, Windows Update, "Scan and fix",
+  antivirus manual ni cualquier herramienta que modifique el sistema.
+- NO borre, revierta ni consolide snapshots antes de preservar el estado.
+- NO marque "Delete from storage" / "Delete files from datastore" al
+  desconectar el disco de salida.
+- Si Windows o el hipervisor ofrecen "Initialize disk" sobre un disco
+  existente, DETENGASE y avise al equipo de respuesta.
+- NO reanude una VM suspendida ni con snapshots de memoria: la pagina de
+  RAM puede contener claves y evidencia volatil que se pierde.
+- Riesgo operativo: al arrancar la VM el ransomware puede volver a
+  ejecutarse. Por eso:
+    a) Si la VM esta apagada y puede clonarse, HAGALO y trabaje sobre el
+       clon.
+    b) Si no puede clonarse, arranque SOLO lo necesario para montar la
+       ISO, ejecutar KAPE y apagar.
+    c) Minimice el numero de discos adicionales conectados.
+
+--------------------------------------------------------------------------------
+3. PREPARACION PREVIA
+--------------------------------------------------------------------------------
+- Confirme estado de la VM: APAGADA o suspendida.
+- Si puede clonar la VM, clonela con la VM APAGADA. Asi trabajara sobre
+  el clon.
+- Confirme que la NIC esta removida o desconectada y que "Connect at
+  power on" esta desactivado.
+- Confirme que no hay adaptadores de red adicionales.
+- Confirme la zona horaria del host del hipervisor y la fecha del sistema.
+
+--------------------------------------------------------------------------------
+4. SUBIR LA ISO AL STORAGE DEL HIPERVISOR
+--------------------------------------------------------------------------------
+   Proxmox VE (interfaz web):
+     a) Datacenter -> node -> local (storage) -> ISO Images -> Upload.
+     b) Suba KAPE-MEDIA-v5.2.13.iso.
+     c) Verifique tamano y SHA-256 esperados (ver KAPE-MEDIA-INFO.txt
+        fuera de la ISO, en la raiz del repo).
+
+   VMware ESXi (interfaz web):
+     a) Host -> Storage -> Datastore browser.
+     b) Cree una carpeta nueva llamada "DFIR".
+     c) Upload -> suba KAPE-MEDIA-v5.2.13.iso dentro de DFIR/.
+     d) Verifique tamano y SHA-256 esperados (ver KAPE-MEDIA-INFO.txt).
+
+--------------------------------------------------------------------------------
+5. FLUJO RAPIDO (RECOMENDADO) — UI visual o consola
+--------------------------------------------------------------------------------
+Por VM:
+
+5.1  Montar la ISO como CD/DVD virtual:
+     - Proxmox:  Hardware -> CD/DVD Drive -> Use CD/DVD disc image file ->
+                Storage: local -> ISO image: KAPE-MEDIA-v5.2.13.iso.
+     - ESXi:     Edit settings -> CD/DVD drive -> Datastore ISO file ->
+                Browse -> DFIR/KAPE-MEDIA-v5.2.13.iso.
+     Verificar que el CD este visible dentro de la VM al arrancar.
+
+5.2  (Solo la primera vez o si el VMDK es nuevo) Crear y formatear el
+     disco de salida (label DFIR_OUTPUT):
+     - Proxmox:  Hardware -> Hard Disk -> SCSI/SATA: 0 -> Add ->
+                local-lvm (o local), tamano 50-100 GB, formato qcow2 o raw.
+     - ESXi:     Edit settings -> Add hard disk -> New standard hard disk ->
+                Tamano recomendado: 50 GB (80-100 GB si EventLogs grandes),
+                Provisioning: Thick lazy zeroed o Thin provisioned.
+     Encender VM -> diskmgmt.msc -> Initialize Disk (GPT) ->
+       New Simple Volume -> NTFS -> Volume label: DFIR_OUTPUT.
+     Asignar letra (normalmente E:).
+     Verificar: wmic logicaldisk get DeviceID,VolumeName,FileSystem
+
+     En corridas subsiguientes el disco ya esta inicializado y formateado:
+     solo conectarlo y arrancar.
+
+5.3  Encender la VM.
+
+5.4  En el Explorador de archivos, ir al CD/DVD ("KAPE-MEDIA").
+
+5.5  Elegir UNA de las dos opciones:
+
+      OPCION A - VISUAL (RECOMENDADA):
+      --------------------------------
+        Doble clic en KAPE_TRIAGE_UI.exe.
+        - Windows pide elevacion (UAC). Aceptar SI (corre como Admin).
+        - Espera a que termine el pre-flight (los checks aparecen en
+          verde con "OK" o en rojo con "FAIL").
+        - ComboBox "Particion de salida" debe mostrar E: (DFIR_OUTPUT).
+          ComboBox "Particion fuente" debe mostrar C:.
+          Si no es asi, ajustar manualmente antes de Ejecutar.
+        - Click "Ejecutar adquisicion".
+        - Observa el log en tiempo real y el strip de 6 fases arriba.
+        - Al terminar, aparece el SHA-256 y tamano del ZIP en la barra
+          de estado, junto con la ruta del ZIP generado.
+
+      OPCION B - CONSOLA (FALLBACK):
+      ------------------------------
+        Doble clic en CHECK_COMPAT.cmd para verificar requisitos primero.
+        Si todo OK, doble clic en KAPE_TRIAGE.cmd.
+        - Si Windows pide elevacion (UAC), aceptar SI.
+        - Confirmar el resumen con "SI".
+        - Esperar. Al final aparecera el SHA-256 y el tamano del ZIP.
+
+5.6  Apagar la VM (Shutdown).
+
+5.7  Desconectar el disco de salida:
+     - Proxmox:  Hardware -> Hard Disk (sata0/SCSI con DFIR-OUTPUT) ->
+                Detach. NO marcar "Delete from storage".
+     - ESXi:     Edit settings -> seleccionar el disco de salida ->
+                "Remove from virtual machine"  (NO "delete from datastore").
+
+--------------------------------------------------------------------------------
+6. QUE HACE KAPE_TRIAGE_UI.exe (paso a paso interno)
+--------------------------------------------------------------------------------
+Si necesita entender que esta pasando o si algo falla, esto es lo que
+la UI ejecuta:
+
+  1. Pide elevacion a Administrador via manifest requireAdministrator.
+  2. Auto-detecta la unidad del CD (AppDomain.BaseDirectory) y la
+     unidad con label "DFIR_OUTPUT" (wmic logicaldisk).
+  3. Pre-flight: chequea wmic, certutil, kape.exe, Targets/, espacio.
+  4. STAGING: copia D:\kape.exe -> E:\_kape_stage\kape.exe. Esto evita
+     el bug original donde KAPE escribe Modules\bin debajo de su propio
+     Assembly.Location (D:\) y falla con "Access denied [D:]".
+  5. Calcula hostname + fecha + hora para nombres de archivo unicos.
+  6. Muestra resumen (Source, Target, ISO, Output, ZIP) en el panel.
+  7. Pide confirmacion con el boton "Ejecutar".
+  8. Ejecuta kape.exe desde E:\_kape_stage\ con:
+       --tsource C:
+       --target KapeTriage
+       --tdest "<output_drive>{HOSTNAME}-KAPE-{YYYYMMDD}-{HHMMSS}"
+       --targetdir "<iso_drive>\Targets"
+       --zip "<output_drive>{HOSTNAME}-KAPE-{YYYYMMDD}-{HHMMSS}.zip"
+       --hv nc,vm --sync $Null --gui
+  9. Calcula SHA-256 del ZIP con certutil y lo guarda al lado.
+ 10. Escribe notas en E:\NOTES\{HOSTNAME}-NOTES-{YYYYMMDD}.txt.
+ 11. Persiste el log completo en E:\NOTES\{HOSTNAME}-LOG-{YYYYMMDD}.txt.
+
+--------------------------------------------------------------------------------
+7. SI LA UI NO FUNCIONA (modo manual)
+--------------------------------------------------------------------------------
+Si KAPE_TRIAGE_UI.exe no arranca (UAC bloqueado, sin .NET 4.5.2,
+entorno raro), puede ejecutar KAPE manualmente. Reemplace <LETRA_ISO>
+y <LETRA_OUTPUT> por las letras reales de su sistema.
+
+7.1  Identificar letras:
+     powershell :  Get-Volume | Format-Table DriveLetter, FileSystemLabel
+     cmd        :  wmic logicaldisk get DeviceID,VolumeName,FileSystem
+     diskpart   :  list volume
+
+7.2  Validar target:
+     "<LETRA_ISO>:\kape.exe" --target KapeTriage --tlist
+
+7.3  Simular tamano:
+     "<LETRA_ISO>:\kape.exe" --tsource C: --target KapeTriage ^
+         --tdest "<LETRA_OUTPUT>:\<HOSTNAME>-KAPE-20260923-120000" ^
+         --targetdir "<LETRA_ISO>:\Targets" --sim
+
+7.4  Ejecutar (lanzar desde una copia escribible, NO desde el CD):
+     mkdir "<LETRA_OUTPUT>:\_kape_stage"
+     copy "<LETRA_ISO>:\kape.exe" "<LETRA_OUTPUT>:\_kape_stage\kape.exe"
+     cd /d "<LETRA_OUTPUT>:\_kape_stage"
+     kape.exe --tsource C: ^
+         --target KapeTriage ^
+         --tdest "<LETRA_OUTPUT>:\<HOSTNAME>-KAPE-20260923-120000" ^
+         --targetdir "<LETRA_ISO>:\Targets" ^
+         --zip "<LETRA_OUTPUT>:\<HOSTNAME>-KAPE-20260923-120000.zip" ^
+         --hv nc,vm --sync $Null --gui
+
+7.5  Calcular hash:
+     certutil -hashfile "<LETRA_OUTPUT>:\<HOSTNAME>-KAPE-20260923-120000.zip" SHA256
+     echo <HASH>  <HOSTNAME>-KAPE-20260923-120000.zip > "<LETRA_OUTPUT>:\<HOSTNAME>-KAPE-20260923-120000.zip.sha256"
+
+--------------------------------------------------------------------------------
+8. SALIDAS ESPERADAS TRAS TERMINAR
+--------------------------------------------------------------------------------
+Dentro de la unidad DFIR_OUTPUT (normalmente E:):
+
+  {HOSTNAME}-KAPE-YYYYMMDD-HHMMSS.zip          Resultado principal.
+  {HOSTNAME}-KAPE-YYYYMMDD-HHMMSS.zip.sha256   Hash SHA-256 (mismo dir).
+  NOTES\{HOSTNAME}-NOTES-YYYYMMDD.txt          Contexto de la corrida.
+  NOTES\{HOSTNAME}-LOG-YYYYMMDD.txt            Log completo.
+  _kape_stage\                                  Binarios copiados + Modules\bin
+                                                generado por KAPE.
+
+Si la misma VM se corre varias veces el mismo dia, cada corrida produce
+archivos distintos (sufijo HHMMSS). No hay colisiones.
+
+--------------------------------------------------------------------------------
+9. EXPORTAR DESDE EL STORAGE DEL HIPERVISOR
+--------------------------------------------------------------------------------
+a) VM apagada y sin tener el disco de salida asignado.
+b) Navegar el storage donde quedo DFIR-OUTPUT.
+   - Proxmox:  Datacenter -> node -> local-lvm (o donde este) ->
+              Disk Image -> identificar vm-{vmid}-disk-{idx} o volumen LVM.
+   - ESXi:     Storage -> Datastore browser -> carpeta del disco.
+c) Descargar TODO el disco. Mantener el descriptor y el -flat juntos en
+   el mismo directorio al pasarlos al analista / a otro hipervisor.
+
+--------------------------------------------------------------------------------
+10. CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
+--------------------------------------------------------------------------------
+Si el incidente lo justifica (ransomware con persistencia, credenciales
+en memoria, conexiones activas, etc.), capturar la RAM ANTES de correr
+KapeTriage. La GUI RAM_CAPTURE_UI.exe v5.2.17 es la ruta recomendada.
+El batch CAPTURE_RAM.cmd queda como fallback si no se puede lanzar GUI.
+
+10.1 Opcion A (GUI - recomendada):
+  a) Montar KAPE-MEDIA-v5.2.18.iso como CD-ROM en la VM afectada.
+  b) Encender la VM. Aceptar el prompt UAC que aparece al lanzar la
+     GUI (manifest requireAdministrator).
+  c) Click derecho en D:\RAM_CAPTURE_UI.exe -> "Ejecutar como
+     administrador" (o doble click si UAC esta habilitado).
+  d) La UI auto-detecta:
+       - Letra del CD-ROM donde esta Tools\Memory\winpmem_mini_x64_rc2.exe
+         (con ComboBox de fallback si hay varios).
+       - Particion de salida (label DFIR_OUTPUT; ComboBox permite elegir
+         otra si hay varias).
+       - Hostname, fecha, RAM total detectada.
+     Log muestra [OK] o "(binario no encontrado)" al lado de cada CD-ROM.
+  e) Validar en la UI:
+       - Ruta del archivo de salida (default: E:\RAM-<HOSTNAME>-<DATETIME>.raw).
+       - Espacio libre suficiente (RAM + 10% overhead). Si no alcanza,
+         la UI pide confirmacion antes de continuar.
+  f) Click "Iniciar captura de RAM". Confirmacion final.
+  g) Durante la captura (~5-15 min):
+       - ProgressBar se actualiza desde lineas de winpmem (regex %).
+       - Log en vivo (stdout/stderr de winpmem).
+       - Boton "Cancelar" mata el proceso winpmem si es necesario.
+  h) Al terminar:
+       - SHA-256 se calcula con System.Security.Cryptography.SHA256
+         nativo (streaming, sin subprocess).
+       - Se escribe companion {output}.sha256 (formato standard).
+       - UI muestra tamano + SHA-256 + tiempo transcurrido.
+       - Boton "Verificar SHA-256" permite re-calcular el hash post-captura.
+
+10.2 Opcion B (batch - fallback si GUI no aplica):
+  a) Mismo prerequisito: ISO montada como CD-ROM.
+  b) cmd.exe como Administrator.
+  c) D:\Tools\Memory\CAPTURE_RAM.cmd [OUTDIR]
+     (default OUTDIR = E:\; acepta otra letra como argumento).
+  d) El script valida admin, valida binario, pide confirmacion, ejecuta
+     winpmem, calcula SHA-256 con certutil, escribe companion .sha256.
+  e) Logica identica al final (mismo nombre de archivo, mismo SHA-256
+     algoritmo equivalente).
+
+10.3 Recomendacion de cadena de custodia:
+  - Capturar RAM ANTES de KapeTriage (estado mas cercano al incidente).
+  - Capturar RAM y KAPE ZIP en el mismo disco de salida (DFIR-OUTPUT.vmdk).
+  - Conservar el archivo .raw y el .sha256 juntos al entregar al analista.
+
+--------------------------------------------------------------------------------
+11. CHECKLIST DE ENTREGA
+--------------------------------------------------------------------------------
+[ ] KAPE-MEDIA-v5.2.13.iso usada, con su SHA-256 verificado.
+[ ] Nombre de la VM y version de Windows.
+[ ] Fecha, hora y zona horaria (host hipervisor) de inicio y fin.
+[ ] Version de KAPE (1.3.0.2) y SHA-256 de kape.exe.
+[ ] Target ejecutado: KapeTriage.
+[ ] ZIP generado: tamano + SHA-256.
+[ ] Archivos del disco de salida exportados (descriptor + flat/raw).
+[ ] Notas de la corrida (ransom note, extension, wallpaper,
+    usuarios bloqueados, servicios caidos, shares afectados).
+[ ] Cualquier anomalia observada durante el procedimiento.
+
+================================================================================
+Fin del manual. Si tiene dudas antes de ejecutar, DETENGASE y consulte
+al equipo de respuesta. Un paso mal dado no se puede deshacer.
+================================================================================

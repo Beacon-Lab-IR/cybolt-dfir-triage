@@ -1,0 +1,5 @@
+[autorun]
+open=KAPE_TRIAGE.cmd
+icon=KAPE.ico
+label=KAPE Acquisition Media
+action=Ejecutar adquisicion KAPE (doble clic en KAPE_TRIAGE.cmd)
