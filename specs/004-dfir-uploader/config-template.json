@@ -1,0 +1,19 @@
+{
+  "_comment": "DFIR_UPLOADER_UI config template v1. El operador edita este archivo a mano y lo sube a un endpoint HTTPS (gist, beaconlab.us/uploads/<token>.json). El cliente solo recibe la URL del config, nunca ve el JSON. POST-INCIDENTE: borrar el config del endpoint + rotar la IAM key en la consola S3/AWS. NO commitees este archivo con valores reales al repo.",
+
+  "version": 1,
+  "bucket": "inc-lena",
+  "endpoint": "https://inc-lena.s3.g.megas4.com",
+  "region": "us-east-1",
+  "prefix": "clients/EXAMPLE-CLIENT/incident-YYYY-MM-DD/",
+  "expires_at": "YYYY-MM-DDTHH:MM:SSZ",
+
+  "access_key_id": "AKIA-REEMPLAZA-CON-TU-IAM-KEY",
+  "secret_access_key": "REEMPLAZA-CON-TU-SECRET-KEY",
+
+  "_session_token_comment": "Solo si usas credenciales temporales STS (AWS STS, IAM role, etc). Dejar null si usas IAM user con key permanente.",
+  "session_token": null,
+
+  "_chunk_size_bytes_comment": "Tamanho de cada parte del multipart upload en bytes. Default 8 MiB (8388608). Minimo S3 = 5 MiB. Subir a 16-32 MiB si tenes buen bandwidth (>= 100 Mbps) y archivos > 1 GB.",
+  "chunk_size_bytes": 8388608
+}

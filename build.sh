@@ -30,7 +30,7 @@ if [ -d iso ]; then
     cp -a iso/. staging/
 fi
 
-# 1) Compilar las dos GUIs
+# 1) Compilar las tres GUIs
 echo ">>> Compilando KAPE_TRIAGE_UI..."
 dotnet build KapeUi/KapeUi.csproj -c Release --nologo
 mkdir -p staging
@@ -39,6 +39,10 @@ cp KapeUi/bin/Release/KAPE_TRIAGE_UI.exe staging/
 echo ">>> Compilando RAM_CAPTURE_UI..."
 dotnet build RamCaptureUi/RamCaptureUi.csproj -c Release --nologo
 cp RamCaptureUi/bin/Release/RAM_CAPTURE_UI.exe staging/
+
+echo ">>> Compilando DFIR_UPLOADER_UI..."
+dotnet build DfirUploaderUi/DfirUploaderUi.csproj -c Release --nologo
+cp DfirUploaderUi/bin/Release/DFIR_UPLOADER_UI.exe staging/
 
 # 2) Verificar/descargar winpmem
 echo ">>> Verificando winpmem..."

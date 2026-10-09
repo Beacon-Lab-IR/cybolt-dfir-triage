@@ -1,32 +1,33 @@
 ================================================================================
-  KAPE-MEDIA-v5.2.18.iso - Resumen y verificacion
+  KAPE-MEDIA-v5.2.20.iso - Resumen y verificacion
   Caso: ransomware Windows sobre VMware ESXi / Proxmox VE - sin red, offline
 ================================================================================
 
 VERSION
 -------
-  Version      : 5.2.18
+  Version      : 5.2.20
   Build        : 2026-09-23
   Plataforma   : Windows (.NET Framework 4.5.2+)
-  Archivo ISO  : KAPE-MEDIA-v5.2.18.iso
+  Archivo ISO  : KAPE-MEDIA-v5.2.20.iso
 
 ARCHIVO
 -------
-  Nombre  : KAPE-MEDIA-v5.2.18.iso
+  Nombre  : KAPE-MEDIA-v5.2.20.iso
   Tamano  : 588 883 968 bytes (562 MiB / 589 MB decimal)
   Formato : ISO9660 con extensiones Joliet (no booteable)
-  Volumen : KAPE-MEDIA-v5.2.18
+  Volumen : KAPE-MEDIA-v5.2.20
   Generado en : macOS via hdiutil makehybrid
 
 SHA-256
 -------
-  51f4a3172073f10e230c9eae273a57266b9e2c45f502ccb555c13af06f6d9978  KAPE-MEDIA-v5.2.18.iso
+  74f604d064dcdd1b8b1f60086bcc16f4fd3fa396cead579ff9e295ee22e1f8ca  KAPE-MEDIA-v5.2.20.iso
 
 HASHES DE ARCHIVOS CRITICOS
 ----------------------------
   kape.exe                              : 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b
-  KAPE_TRIAGE_UI.exe                    : 7664b8d8454affa0592ef01cd2e7ab1d45489486c5dd965040ae3fca48fb6c76
+  KAPE_TRIAGE_UI.exe                    : 29c4773ad41f8e00c5b3ce2bc9dc86797323b70753ac8c01f928f6131b6abec7
   RAM_CAPTURE_UI.exe                    : 9f395a9e41fa1c8ad3a2413bda3ac3102a4da2c40161cc211d0702424d7f6d2a
+  DFIR_UPLOADER_UI.exe                  : 2b0c5345399a36fe25f215bcc2d4a4490f562285608771f0502b64dd9eefbd37
   KAPE_TRIAGE_UI.exe.config             : cd01de75bd5626c11bf2c1d9983f87b9f24ccabfe5edf5657df0870c27106ab7
   KAPE_TRIAGE.cmd                       : da21dba98bcba3078f901e087500a2fa92a3b72be40594e88794403dd61558c5
   CHECK_COMPAT.cmd                      : 245a4ec94bcd5b1daaf17708155aa578817af84f812bcd9293f017e63b94edae
@@ -42,6 +43,35 @@ COMPATIBILIDAD (KAPE 1.3.0.2 + scripts + UI)
   Server 2012+ / 2008 R2 SP1 : OK
   XP / Vista                : NO SOPORTADO
 
+DFIR_UPLOADER_UI.exe detalles:
+  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
+  Tamano        : 62 KB
+  Plataforma    : x86-64
+  Manifest      : requireAdministrator (UAC forzado al arranque)
+  Version       : 5.3.0
+  Licencia      : MIT (Copyright (c) 2026 Cybolt)
+  Funcion       : GUI para subir la evidencia capturada (KAPE ZIP, RAM .raw,
+                 OVAs, cualquier extension) a un bucket S3-compatible
+                 (Mega.nz S4 Object Storage, AWS S3, Wasabi, Backblaze B2,
+                 MinIO self-hosted). Config JSON remoto via HTTPS
+                 (gist o beaconlab.us/uploads/<token>) que el operador
+                 controla y rota. Credenciales NO embebidas en el binario.
+                 SHA-256 streaming (1 MiB buffer, sin cargar en RAM).
+                 S3 multipart upload con SigV4 firmado en el cliente
+                 (sin AWSSDK, sin NuGet). Single PUT para < 8 MiB,
+                 multipart (8 MiB chunks) para >= 8 MiB. Cancel mid-flight
+                 via AbortMultipartUpload. Post-upload HEAD verify
+                 (Content-Length match). Audit log JSON escrito en disco
+                 (E:\DFIR-OUTPUT\upload-audit-<ts>.json) y subido al bucket
+                 como sidecar (<prefix>/audit-<ts>.json).
+  Dependencias  : System.Web.Extensions (JSON parse via JavaScriptSerializer,
+                 BCL, sin NuGet). Net.Http (HttpClient + HttpClientHandler,
+                 BCL, sin NuGet). SigV4 implementado a mano.
+  Spec completa  : specs/004-dfir-uploader/spec.md
+  Schema config  : docs/CONFIG-SCHEMA.md
+  Template JSON  : specs/004-dfir-uploader/config-template.json
+  Operativa     : MANUAL_OPERATIVO.txt seccion 11 (DFIR_UPLOADER)
+
 KAPE_TRIAGE_UI.exe detalles:
   Tecnologia    : Windows Forms (.NET Framework 4.5.2)
   Tamano        : 43 KB
@@ -55,13 +85,30 @@ RAM_CAPTURE_UI.exe detalles:
   Tamano        : 29 KB
   Plataforma    : x86-64
   Manifest      : requireAdministrator (UAC forzado al arranque)
-  Version       : 5.2.18
+  Version       : 5.2.20
   Licencia      : MIT (Copyright (c) 2026 Cybolt)
   Funcion       : Envoltorio GUI para winpmem_mini_x64_rc2.exe. Auto-detecta
                  CD-ROM y disco de salida (label DFIR_OUTPUT), valida espacio
                  libre (RAM + 10% overhead), lanza winpmem con Process
                  redirigido, parsea progreso a ProgressBar, calcula SHA-256
                  nativo .NET al finalizar.
+
+  Mejoras v5.2.20 vs v5.2.19:
+    - MEJORA: KAPE_TRIAGE_UI ahora tiene checkbox "Lanzar KAPE via
+      cmd.exe (evita spam de Console Title)" en el panel avanzado.
+      Cuando esta marcado, GUI lanza cmd /c start "" /B /WAIT kape.exe
+      [args] - KAPE hereda una consola real, Console.Title funciona,
+      no hay spam. Recomendado para servers/VMs con muchos modulos.
+
+  Mejoras v5.2.19 vs v5.2.18:
+    - FIX: KAPE_TRIAGE_UI filtra el spam "Unable to update Console Title"
+      del runtime .NET. Bug observado 2026-10-08 corriendo KapeTriage
+      en un server con DC: KAPE 1.3.0.2 internamente llama Console.Title
+      para mostrar progreso, pero como la GUI lo lanza con
+      RedirectStandardOutput + CreateNoWindow, el handle de consola
+      no es valido y el runtime loguea el error 8-10 veces/segundo
+      durante fase 3. Es ruido puro (no afecta la captura), pero
+      llenaba el log. v5.2.20 descarta esas lineas via IsConsoleTitleNoise.
 
   Mejoras v5.2.18 vs v5.2.17:
     - FIX CRITICO: si el archivo .raw quedo escrito al >=95% de la RAM
@@ -167,7 +214,7 @@ RAM_CAPTURE_UI.exe detalles:
 
 FLUJO DE CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
 -------------------------------------------------------------------
-  1. Operador monta KAPE-MEDIA-v5.2.18.iso como CD-ROM en la VM
+  1. Operador monta KAPE-MEDIA-v5.2.20.iso como CD-ROM en la VM
      afectada (sin red, VMDK DFIR_OUTPUT adjunto como segundo disco).
   2. Si quiere GUI: abre cmd como Administrator, navega a la ISO,
      doble clic en RAM_CAPTURE_UI.exe. Acepta UAC.
@@ -187,7 +234,7 @@ FLUJO DE CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
      "Verificar SHA-256" permite re-calcular post-captura.
 
   Si winpmem falla con exit code != 0:
-     - v5.2.18 abre MessageBox expandido con:
+     - v5.2.20 abre MessageBox expandido con:
          * Tamano del archivo .raw parcial (si existe).
          * Ultimas 25 lineas de stdout.
          * Ultimas 25 lineas de stderr.
