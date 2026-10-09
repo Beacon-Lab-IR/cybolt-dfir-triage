@@ -1,33 +1,33 @@
 ================================================================================
-  CYBOLT-DFIR-TRIAGE-v5.2.20.iso - Resumen y verificacion
+  CYBOLT-DFIR-TRIAGE-v5.3.0.iso - Resumen y verificacion
   Caso: ransomware Windows sobre VMware ESXi / Proxmox VE - sin red, offline
 ================================================================================
 
 VERSION
 -------
-  Version      : 5.2.20
-  Build        : 2026-09-23
+  Version      : 5.3.0
+  Build        : 2026-10-08
   Plataforma   : Windows (.NET Framework 4.5.2+)
-  Archivo ISO  : CYBOLT-DFIR-TRIAGE-v5.2.20.iso
+  Archivo ISO  : CYBOLT-DFIR-TRIAGE-v5.3.0.iso
 
 ARCHIVO
 -------
-  Nombre  : CYBOLT-DFIR-TRIAGE-v5.2.20.iso
-  Tamano  : 588 883 968 bytes (562 MiB / 589 MB decimal)
+  Nombre  : CYBOLT-DFIR-TRIAGE-v5.3.0.iso
+  Tamano  : 588 965 888 bytes (562 MiB / 589 MB decimal)
   Formato : ISO9660 con extensiones Joliet (no booteable)
-  Volumen : CYBOLT-DFIR-TRIAGE-v5.2.20
+  Volumen : CYBOLT-DFIR-TRIAGE-v5.3.0
   Generado en : macOS via hdiutil makehybrid
 
 SHA-256
 -------
-  74f604d064dcdd1b8b1f60086bcc16f4fd3fa396cead579ff9e295ee22e1f8ca  CYBOLT-DFIR-TRIAGE-v5.2.20.iso
+  c941608cf7a58d17c31bfb1e8b8bb4b5928ade226b3dac341ca931b85310a716  CYBOLT-DFIR-TRIAGE-v5.3.0.iso
 
 HASHES DE ARCHIVOS CRITICOS
 ----------------------------
   kape.exe                              : 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b
-  KAPE_TRIAGE_UI.exe                    : 29c4773ad41f8e00c5b3ce2bc9dc86797323b70753ac8c01f928f6131b6abec7
-  RAM_CAPTURE_UI.exe                    : 9f395a9e41fa1c8ad3a2413bda3ac3102a4da2c40161cc211d0702424d7f6d2a
-  DFIR_UPLOADER_UI.exe                  : 2b0c5345399a36fe25f215bcc2d4a4490f562285608771f0502b64dd9eefbd37
+  KAPE_TRIAGE_UI.exe                    : 9f6fe1471407ef787e31197a58c9b9cdea259c4148385b6314cbaf87bad63feb
+  RAM_CAPTURE_UI.exe                    : ceb8afd61ac2ab4e56d508d1e9b54892df96d8e0ed628c55c64b1e76f4433a9d
+  DFIR_UPLOADER_UI.exe                  : 6a52c92005c9e56b4e55e412f0a3472b41237916219bc7129cfc43b79e48fabf
   KAPE_TRIAGE_UI.exe.config             : cd01de75bd5626c11bf2c1d9983f87b9f24ccabfe5edf5657df0870c27106ab7
   KAPE_TRIAGE.cmd                       : da21dba98bcba3078f901e087500a2fa92a3b72be40594e88794403dd61558c5
   CHECK_COMPAT.cmd                      : 245a4ec94bcd5b1daaf17708155aa578817af84f812bcd9293f017e63b94edae
