@@ -44,13 +44,14 @@ namespace DfirUploaderUi
     /// </summary>
     internal class AuditLog
     {
-        public int SchemaVersion { get; set; } = 1;
+        public int SchemaVersion { get; set; } = 2;
         public string StartedUtc { get; set; }
         public string CompletedUtc { get; set; }
         public string Operator { get; set; }
         public string CaseId { get; set; }
         public string IncidentDate { get; set; }
         public string Notes { get; set; }
+        public string Protocol { get; set; }
         public string Bucket { get; set; }
         public string Endpoint { get; set; }
         public string Prefix { get; set; }
@@ -92,6 +93,7 @@ namespace DfirUploaderUi
             log.CaseId = caseId ?? string.Empty;
             log.IncidentDate = incidentDate ?? DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             log.Notes = notes ?? string.Empty;
+            log.Protocol = string.IsNullOrEmpty(config.Protocol) ? "s3" : config.Protocol;
             log.Bucket = config.Bucket;
             log.Endpoint = config.Endpoint;
             log.Prefix = config.Prefix;

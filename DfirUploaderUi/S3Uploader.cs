@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -13,81 +11,58 @@ using System.Xml;
 namespace DfirUploaderUi
 {
     /// <summary>
-    /// S3 multipart upload + verify worker. Talks to a single bucket per
-    /// UploadConfig. Uses SigV4 signing (SigV4Signer.cs) for every API
-    /// call.
-    ///
-    /// Operations supported:
-    ///   - PUT single object (small files < chunk size)
-    ///   - CreateMultipartUpload / UploadPart / CompleteMultipartUpload /
-    ///     AbortMultipartUpload (large files >= chunk size)
-    ///   - HEAD object (post-upload verification)
-    ///
-    /// Reference: https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations_Amazon_Simple_Storage_Service.html
+    /// S3 multipart upload + verify worker. Habla con un solo bucket por
+    /// UploadConfig. Usa SigV4 signing (SigV4Signer.cs) para cada API call.
+    /// Implementa IUploader.
     /// </summary>
-    internal class S3Uploader
+    internal class S3Uploader : IUploader
     {
+        public string Protocol { get { return "s3"; } }
+
         private readonly UploadConfig _config;
         private readonly Action<string> _log;
         private readonly IProgress<UploadProgress> _progress;
-        private readonly CancellationToken _ct;
 
-        public S3Uploader(UploadConfig config, Action<string> log, IProgress<UploadProgress> progress, CancellationToken ct)
+        public S3Uploader(UploadConfig config, Action<string> log, IProgress<UploadProgress> progress)
         {
             _config = config;
             _log = log;
             _progress = progress;
-            _ct = ct;
         }
 
-        /// <summary>
-        /// Upload a single file. Decides single PUT vs multipart based on size.
-        /// Returns UploadResult with ETag and (if multipart) UploadId.
-        /// </summary>
-        public async Task<UploadResult> UploadFileAsync(string localPath, string s3Key, long sizeBytes, string sha256)
+        public async Task<UploadResult> UploadFileAsync(
+            string localPath, string remoteKey, long sizeBytes, string sha256, CancellationToken ct)
         {
-            _log("[+] Subiendo " + Path.GetFileName(localPath) + " (" + FormatBytes(sizeBytes) + ") -> s3://" + _config.Bucket + "/" + s3Key);
+            _log("[+] Subiendo " + Path.GetFileName(localPath) + " (" + FormatBytes(sizeBytes) + ") -> s3://" + _config.Bucket + "/" + remoteKey);
 
-            // Decide single vs multipart based on chunk size
             if (sizeBytes < _config.ChunkSizeBytes)
             {
-                return await UploadSingleAsync(localPath, s3Key).ConfigureAwait(false);
+                return await UploadSingleAsync(localPath, remoteKey, ct).ConfigureAwait(false);
             }
             else
             {
-                return await UploadMultipartAsync(localPath, s3Key, sizeBytes).ConfigureAwait(false);
+                return await UploadMultipartAsync(localPath, remoteKey, sizeBytes, ct).ConfigureAwait(false);
             }
         }
 
-        /// <summary>
-        /// Single PUT. Read file fully into memory (only used for files < 8 MiB).
-        /// </summary>
-        private async Task<UploadResult> UploadSingleAsync(string localPath, string s3Key)
+        private async Task<UploadResult> UploadSingleAsync(string localPath, string remoteKey, CancellationToken ct)
         {
             byte[] bytes;
             using (var fs = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var ms = new MemoryStream())
             {
-                await fs.CopyToAsync(ms, 81920, _ct).ConfigureAwait(false);
+                await fs.CopyToAsync(ms, 81920, ct).ConfigureAwait(false);
                 bytes = ms.ToArray();
             }
 
-            var uri = new Uri(_config.Endpoint.TrimEnd('/') + "/" + _config.Bucket + "/" + Uri.EscapeUriString(s3Key).Replace("%2F", "/"));
+            var canonicalUri = "/" + _config.Bucket + "/" + remoteKey;
             var headers = new Dictionary<string, string>();
             var signed = SigV4Signer.SignRequest(
-                "PUT",
-                _config.Endpoint,
-                "/" + _config.Bucket + "/" + s3Key,
-                string.Empty,
-                headers,
-                PayloadHashMode.Sha256,
-                bytes,
-                _config.AccessKeyId,
-                _config.SecretAccessKey,
-                _config.Region,
-                "s3",
-                _config.SessionToken);
+                "PUT", _config.Endpoint, canonicalUri, string.Empty,
+                headers, PayloadHashMode.Sha256, bytes,
+                _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
 
+            var uri = new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri);
             using (var handler = new HttpClientHandler())
             using (var http = new HttpClient(handler))
             {
@@ -95,8 +70,7 @@ namespace DfirUploaderUi
                 var content = new ByteArrayContent(bytes);
                 content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                 foreach (var kv in signed) content.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-
-                var resp = await http.PutAsync(uri, content, _ct).ConfigureAwait(false);
+                var resp = await http.PutAsync(uri, content, ct).ConfigureAwait(false);
                 var etag = resp.Headers.ETag != null ? resp.Headers.ETag.Tag : null;
                 if (!resp.IsSuccessStatusCode)
                 {
@@ -114,37 +88,23 @@ namespace DfirUploaderUi
             }
         }
 
-        /// <summary>
-        /// Multipart upload: CreateMultipartUpload + UploadPart*N + CompleteMultipartUpload.
-        /// Streams file in 8 MiB chunks. Reports progress per part.
-        /// </summary>
-        private async Task<UploadResult> UploadMultipartAsync(string localPath, string s3Key, long totalSize)
+        private async Task<UploadResult> UploadMultipartAsync(string localPath, string remoteKey, long totalSize, CancellationToken ct)
         {
-            var canonicalUri = "/" + _config.Bucket + "/" + s3Key;
-            var baseUri = new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri);
+            var canonicalUri = "/" + _config.Bucket + "/" + remoteKey;
 
             // Step 1: CreateMultipartUpload
-            _log("[+] CreateMultipartUpload -> s3://" + _config.Bucket + "/" + s3Key);
+            _log("[+] CreateMultipartUpload -> s3://" + _config.Bucket + "/" + remoteKey);
             var createXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
                             "<CreateMultipartUpload xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
                             "</CreateMultipartUpload>";
             var createBodyBytes = System.Text.Encoding.UTF8.GetBytes(createXml);
-
             string uploadId;
+
             var createHeaders = new Dictionary<string, string>();
             var createSigned = SigV4Signer.SignRequest(
-                "POST",
-                _config.Endpoint,
-                canonicalUri,
-                "uploads",
-                createHeaders,
-                PayloadHashMode.Empty,
-                null,
-                _config.AccessKeyId,
-                _config.SecretAccessKey,
-                _config.Region,
-                "s3",
-                _config.SessionToken);
+                "POST", _config.Endpoint, canonicalUri, "uploads",
+                createHeaders, PayloadHashMode.Empty, null,
+                _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
 
             using (var handler = new HttpClientHandler())
             using (var http = new HttpClient(handler))
@@ -152,7 +112,7 @@ namespace DfirUploaderUi
                 http.Timeout = TimeSpan.FromMinutes(30);
                 var content = new ByteArrayContent(createBodyBytes);
                 foreach (var kv in createSigned) content.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                var resp = await http.PostAsync(baseUri + "?uploads", content, _ct).ConfigureAwait(false);
+                var resp = await http.PostAsync(new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?uploads"), content, ct).ConfigureAwait(false);
                 var respBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (!resp.IsSuccessStatusCode)
                 {
@@ -173,27 +133,18 @@ namespace DfirUploaderUi
                     long bytesSent = 0;
                     var buffer = new byte[_config.ChunkSizeBytes];
                     int read;
-                    while ((read = await fs.ReadAsync(buffer, 0, buffer.Length, _ct).ConfigureAwait(false)) > 0)
+                    while ((read = await fs.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
                     {
-                        _ct.ThrowIfCancellationRequested();
+                        ct.ThrowIfCancellationRequested();
                         var partBytes = new byte[read];
                         Buffer.BlockCopy(buffer, 0, partBytes, 0, read);
 
                         var partQuery = "partNumber=" + partNumber + "&uploadId=" + Uri.EscapeDataString(uploadId);
                         var partHeaders = new Dictionary<string, string>();
                         var partSigned = SigV4Signer.SignRequest(
-                            "PUT",
-                            _config.Endpoint,
-                            canonicalUri,
-                            partQuery,
-                            partHeaders,
-                            PayloadHashMode.Unsigned,
-                            null,
-                            _config.AccessKeyId,
-                            _config.SecretAccessKey,
-                            _config.Region,
-                            "s3",
-                            _config.SessionToken);
+                            "PUT", _config.Endpoint, canonicalUri, partQuery,
+                            partHeaders, PayloadHashMode.Unsigned, null,
+                            _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
 
                         var partUri = new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?" + partQuery);
                         using (var handler = new HttpClientHandler())
@@ -202,7 +153,7 @@ namespace DfirUploaderUi
                             http.Timeout = TimeSpan.FromMinutes(10);
                             var content = new ByteArrayContent(partBytes);
                             foreach (var kv in partSigned) content.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                            var resp = await http.PutAsync(partUri, content, _ct).ConfigureAwait(false);
+                            var resp = await http.PutAsync(partUri, content, ct).ConfigureAwait(false);
                             if (!resp.IsSuccessStatusCode)
                             {
                                 var errBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -240,18 +191,9 @@ namespace DfirUploaderUi
                 var completeQuery = "uploadId=" + Uri.EscapeDataString(uploadId);
                 var completeHeaders = new Dictionary<string, string>();
                 var completeSigned = SigV4Signer.SignRequest(
-                    "POST",
-                    _config.Endpoint,
-                    canonicalUri,
-                    completeQuery,
-                    completeHeaders,
-                    PayloadHashMode.Empty,
-                    null,
-                    _config.AccessKeyId,
-                    _config.SecretAccessKey,
-                    _config.Region,
-                    "s3",
-                    _config.SessionToken);
+                    "POST", _config.Endpoint, canonicalUri, completeQuery,
+                    completeHeaders, PayloadHashMode.Empty, null,
+                    _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
 
                 using (var handler = new HttpClientHandler())
                 using (var http = new HttpClient(handler))
@@ -259,7 +201,7 @@ namespace DfirUploaderUi
                     http.Timeout = TimeSpan.FromMinutes(5);
                     var content = new ByteArrayContent(completeBytes);
                     foreach (var kv in completeSigned) content.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                    var resp = await http.PostAsync(new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?" + completeQuery), content, _ct).ConfigureAwait(false);
+                    var resp = await http.PostAsync(new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?" + completeQuery), content, ct).ConfigureAwait(false);
                     var respBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (!resp.IsSuccessStatusCode)
                     {
@@ -278,83 +220,70 @@ namespace DfirUploaderUi
             }
             catch
             {
-                // On error: AbortMultipartUpload
-                try
-                {
-                    _log("[!] AbortMultipartUpload " + uploadId);
-                    var abortQuery = "uploadId=" + Uri.EscapeDataString(uploadId);
-                    var abortHeaders = new Dictionary<string, string>();
-                    var abortSigned = SigV4Signer.SignRequest(
-                        "DELETE",
-                        _config.Endpoint,
-                        canonicalUri,
-                        abortQuery,
-                        abortHeaders,
-                        PayloadHashMode.Empty,
-                        null,
-                        _config.AccessKeyId,
-                        _config.SecretAccessKey,
-                        _config.Region,
-                        "s3",
-                        _config.SessionToken);
-                    using (var handler = new HttpClientHandler())
-                    using (var http = new HttpClient(handler))
-                    {
-                        http.Timeout = TimeSpan.FromSeconds(30);
-                        var msg = new HttpRequestMessage(HttpMethod.Delete, new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?" + abortQuery));
-                        foreach (var kv in abortSigned) msg.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                        var resp = await http.SendAsync(msg, _ct).ConfigureAwait(false);
-                        _log("[+] Abort HTTP " + (int)resp.StatusCode);
-                    }
-                }
-                catch (Exception abortEx)
-                {
-                    _log("[!] Abort fallo: " + abortEx.Message);
-                }
+                await AbortMultipartAsync(canonicalUri, uploadId).ConfigureAwait(false);
                 throw;
             }
         }
 
-        /// <summary>
-        /// HEAD verify post-upload. Returns ContentLength from response. Throws if not 200.
-        /// </summary>
-        public async Task<long> VerifyHeadAsync(string s3Key)
+        private async Task AbortMultipartAsync(string canonicalUri, string uploadId)
         {
-            var canonicalUri = "/" + _config.Bucket + "/" + s3Key;
+            try
+            {
+                _log("[!] AbortMultipartUpload " + uploadId);
+                var abortQuery = "uploadId=" + Uri.EscapeDataString(uploadId);
+                var abortHeaders = new Dictionary<string, string>();
+                var abortSigned = SigV4Signer.SignRequest(
+                    "DELETE", _config.Endpoint, canonicalUri, abortQuery,
+                    abortHeaders, PayloadHashMode.Empty, null,
+                    _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
+                using (var handler = new HttpClientHandler())
+                using (var http = new HttpClient(handler))
+                {
+                    http.Timeout = TimeSpan.FromSeconds(30);
+                    var msg = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Delete, new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri + "?" + abortQuery));
+                    foreach (var kv in abortSigned) msg.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+                    var resp = await http.SendAsync(msg).ConfigureAwait(false);
+                    _log("[+] Abort HTTP " + (int)resp.StatusCode);
+                }
+            }
+            catch (Exception abortEx)
+            {
+                _log("[!] Abort fallo: " + abortEx.Message);
+            }
+        }
+
+        public async Task<long> VerifyAsync(string remoteKey, CancellationToken ct)
+        {
+            var canonicalUri = "/" + _config.Bucket + "/" + remoteKey;
             var headers = new Dictionary<string, string>();
             var signed = SigV4Signer.SignRequest(
-                "HEAD",
-                _config.Endpoint,
-                canonicalUri,
-                string.Empty,
-                headers,
-                PayloadHashMode.Empty,
-                null,
-                _config.AccessKeyId,
-                _config.SecretAccessKey,
-                _config.Region,
-                "s3",
-                _config.SessionToken);
-
+                "HEAD", _config.Endpoint, canonicalUri, string.Empty,
+                headers, PayloadHashMode.Empty, null,
+                _config.AccessKeyId, _config.SecretAccessKey, _config.Region, "s3", _config.SessionToken);
             var uri = new Uri(_config.Endpoint.TrimEnd('/') + canonicalUri);
             using (var handler = new HttpClientHandler())
             using (var http = new HttpClient(handler))
             {
                 http.Timeout = TimeSpan.FromSeconds(30);
-                var msg = new HttpRequestMessage(HttpMethod.Head, uri);
+                var msg = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Head, uri);
                 foreach (var kv in signed) msg.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                var resp = await http.SendAsync(msg, _ct).ConfigureAwait(false);
+                var resp = await http.SendAsync(msg, ct).ConfigureAwait(false);
                 if (!resp.IsSuccessStatusCode)
                 {
                     throw new UploadException("HEAD verify failed", (int)resp.StatusCode, null);
                 }
                 var len = resp.Content.Headers.ContentLength ?? -1;
-                _log("[+] HEAD OK s3://" + _config.Bucket + "/" + s3Key + " Content-Length=" + len);
+                _log("[+] HEAD OK s3://" + _config.Bucket + "/" + remoteKey + " Content-Length=" + len);
                 return len;
             }
         }
 
-        // Helpers
+        public async Task AbortAllAsync()
+        {
+            // S3 multipart abort is per-uploadId, handled in UploadMultipartAsync catch block.
+            await Task.Delay(0);
+        }
+
         private static string ExtractUploadId(string xml)
         {
             try
@@ -404,34 +333,6 @@ namespace DfirUploaderUi
             if (bytes < 1024 * 1024) return (bytes / 1024.0).ToString("F1") + " KiB";
             if (bytes < 1024L * 1024 * 1024) return (bytes / (1024.0 * 1024)).ToString("F1") + " MiB";
             return (bytes / (1024.0 * 1024 * 1024)).ToString("F2") + " GiB";
-        }
-    }
-
-    internal class UploadResult
-    {
-        public string ETag { get; set; }
-        public string UploadId { get; set; }
-        public int PartCount { get; set; }
-    }
-
-    internal class UploadProgress
-    {
-        public string CurrentFile { get; set; }
-        public int PartNumber { get; set; }
-        public int TotalParts { get; set; }
-        public long BytesSent { get; set; }
-        public long TotalBytes { get; set; }
-    }
-
-    internal class UploadException : Exception
-    {
-        public int HttpStatus { get; set; }
-        public string ETag { get; set; }
-
-        public UploadException(string msg, int status, string etag) : base(msg)
-        {
-            HttpStatus = status;
-            ETag = etag;
         }
     }
 }

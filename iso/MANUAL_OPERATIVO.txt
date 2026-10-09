@@ -494,18 +494,131 @@ El batch CAPTURE_RAM.cmd queda como fallback si no se puede lanzar GUI.
   - Conservar el archivo .raw y el .sha256 juntos al entregar al analista.
 
 --------------------------------------------------------------------------------
-11. CHECKLIST DE ENTREGA
+11. SUBIDA DE EVIDENCIA CON DFIR_UPLOADER (OPCION D - v5.3.0)
 --------------------------------------------------------------------------------
-[ ] CYBOLT-DFIR-TRIAGE-v5.2.13.iso usada, con su SHA-256 verificado.
+Si el operador (Beacon-Lab) te paso una URL/path de config antes de empezar,
+podes subir la evidencia capturada directamente desde la VM afectada sin
+necesidad de extraer el disco DFIR-OUTPUT.vmdk. La GUI DFIR_UPLOADER_UI.exe
+soporta multiples protocolos: S3 (incluyendo Mega.nz S4), FTP/FTPS, SFTP,
+y SMB. El protocolo se autodetecta del config JSON o del URL scheme.
+
+11.1 Pre-requisitos:
+
+  a) Tener capturada la evidencia (KAPE ZIP + opcional RAM .raw) en
+     E:\DFIR-OUTPUT\ (o donde lo hayas puesto en disco con label DFIR_OUTPUT).
+  b) Recibiste del operador un config (URL HTTPS o path local) con credenciales
+     + destino. El operador lo hospeda en gist de GitHub, beaconlab.us, o
+     te lo pasa en un USB. Schema en docs/CONFIG-SCHEMA.md.
+  c) Si protocol=ftp/sftp/smb: la VM tiene acceso al endpoint (puerto 21/22/445
+     abierto al server). Sin red durante la captura, con red durante la subida.
+  d) Privilegios de Administrador local (UAC prompt aparece al lanzar).
+
+11.2 Flujo de la GUI (todos los protocolos):
+
+  a) Doble clic en DFIR_UPLOADER_UI.exe. Aceptar el prompt UAC.
+
+  b) Seccion 1 - Config remoto:
+     - Pegar la URL HTTPS del config O el path local (ej E:\DFIR-OUTPUT\
+       config.json o \\fileserver\transfer\config.json) en el TextBox "URL:".
+     - Click 🔄 Sync. La GUI trae el JSON (HTTPS con cert validation, o
+       lee del disco local).
+     - Valida campos requeridos segun protocolo. Muestra "Bucket: X / Prefix: Y"
+       para S3, o "Host: ftp.example.com / Path: /uploads/" para FTP/SFTP/SMB.
+     - Si falla: error especifico + Upload deshabilitado.
+
+  c) Click ✓ Health. La GUI hace un probe contra el endpoint:
+       - S3: HEAD con key dummy. 404 esperado = OK.
+       - FTP: timestamp query. 200 OK = OK.
+       - SFTP: ls command contra path. OK si responde.
+       - SMB: ls contra el share montado. OK si responde.
+
+  d) Seccion 2 - Metadata (igual todos los protocolos).
+
+  e) Seccion 3 - Seleccion de artefactos (igual).
+
+  f) Seccion 4 - Upload:
+     - Click ▶ Upload. La GUI dispatcha al IUploader correcto segun protocol:
+       - S3: SigV4 multipart (Create/UploadPart/Complete) o single PUT
+       - FTP: FtpWebRequest STOR. PASSIVE por default. FTPS si ssl=true.
+       - SFTP: sftp.exe CLI (Windows 10+ OpenSSH Client).
+       - SMB: net use + File.Copy al UNC path.
+     - Progress bar + status + log en vivo.
+
+  g) Al terminar: audit log escrito en disco y subido al destino como sidecar.
+
+11.3 Cadena de custodia / verificacion post-upload:
+
+  El receptor (operador o analista DFIR) debe:
+  1. Descargar los artefactos del destino:
+       - S3: aws s3 sync s3://<bucket>/<prefix>/ ./downloaded/
+       - FTP: wget -r ftp://user:pass@host/<path>/
+       - SFTP: rsync -av user@sftp:/<path>/ ./downloaded/
+       - SMB: robocopy \\server\share\path ./downloaded /MIR
+  2. Descargar el audit.json sidecar.
+  3. Comparar hashes SHA-256 locales contra los del audit.json.
+  4. Si algun hash difiere: la evidencia se corrompio en transito. Reportar
+     al operador y reintentar upload.
+
+11.4 Post-incidente (lo hace el operador, no el cliente):
+
+  El operador (Beacon-Lab):
+  1. Descarga del destino via la herramienta correspondiente.
+  2. Verifica hashes contra audit.json.
+  3. Borra el config remoto (gist delete o rm uploads/<token>.json).
+  4. Rota credenciales segun protocolo:
+     - S3: delete-access-key en consola AWS/IAM.
+     - FTP: cambiar password en el server.
+     - SFTP: revocar key publica authorized_keys.
+     - SMB: cambiar password / deshabilitar cuenta.
+  5. Borra el contenido del destino una vez entregado al cliente final.
+
+11.5 Troubleshooting por protocolo:
+
+  S3:
+  - "Cert invalido" o "HTTPS requerido": el endpoint no usa HTTPS.
+  - "Acceso denegado (403)": la IAM key no tiene policy PutObject sobre el prefix.
+  - "SignatureDoesNotMatch": el secret_access_key no corresponde al access_key_id.
+
+  FTP/FTPS:
+  - "530 Login incorrect": usuario/password mal.
+  - "550 Permission denied": el user no tiene write en ftp_path.
+  - "Connection timed out": puerto bloqueado por firewall (probar ftp_ssl=true
+    si el server soporta FTPS).
+  - "PASSIVE mode failed": probar ftp_passive=false (modo activo, requiere
+    IP estatica del cliente).
+
+  SFTP:
+  - "ssh: connect to host ... port 22: Connection timed out": puerto 22 bloqueado.
+  - "Permission denied (publickey)": el key_path no tiene los permisos correctos
+    o no esta en ~/.ssh/authorized_keys del server.
+  - "sftp.exe no encontrado": instalar OpenSSH Client via Windows Optional
+    Features, o staged psftp.exe de PuTTY.
+
+  SMB:
+  - "net use fallo 1326": usuario/password incorrectos.
+  - "net use fallo 53": path de share no encontrado (verificar SMB firewall).
+  - "net use fallo 1219": ya hay una sesion SMB al mismo server con otras
+    credenciales. Cerrarla primero: net use * /delete
+
+--------------------------------------------------------------------------------
+12. CHECKLIST DE ENTREGA
+--------------------------------------------------------------------------------
+[ ] CYBOLT-DFIR-TRIAGE-v5.3.0.iso usada, con su SHA-256 verificado.
 [ ] Nombre de la VM y version de Windows.
 [ ] Fecha, hora y zona horaria (host hipervisor) de inicio y fin.
 [ ] Version de KAPE (1.3.0.2) y SHA-256 de kape.exe.
 [ ] Target ejecutado: KapeTriage.
 [ ] ZIP generado: tamano + SHA-256.
+[ ] (Opcional) RAM .raw capturado (tamano + SHA-256).
+[ ] (Opcional) Evidencia subida via DFIR_UPLOADER_UI: protocol + audit log
+    sidecar verificado + hashes SHA-256 contra descarga local.
 [ ] Archivos del disco de salida exportados (descriptor + flat/raw).
 [ ] Notas de la corrida (ransom note, extension, wallpaper,
     usuarios bloqueados, servicios caidos, shares afectados).
 [ ] Cualquier anomalia observada durante el procedimiento.
+[ ] (Operador) Config remoto borrado del endpoint (gist/uploads/<token>).
+[ ] (Operador) Credenciales rotadas (IAM key / FTP pass / SSH key / SMB pass).
+[ ] (Operador) Contenido del destino borrado (post-entrega al cliente).
 
 ================================================================================
 Fin del manual. Si tiene dudas antes de ejecutar, DETENGASE y consulte

@@ -10,42 +10,125 @@ using System.Web.Script.Serialization;
 namespace DfirUploaderUi
 {
     /// <summary>
-    /// Carga y valida el config JSON remoto. HTTPS con cert validation
-    /// obligatoria (HttpClient default).
+    /// Carga y valida el config JSON remoto o de archivo local. HTTPS con cert
+    /// validation obligatoria (HttpClient default), o file:// / local path.
     ///
-    /// Schema del config (v1):
+    /// Schema del config (v2):
     /// {
-    ///   "version": 1,
-    ///   "bucket": "inc-lena",
-    ///   "endpoint": "https://inc-lena.s3.g.megas4.com",
-    ///   "region": "us-east-1",
-    ///   "prefix": "clients/acme-corp/incident-2026-10-08/",
-    ///   "expires_at": "2026-10-08T23:00:00Z",
-    ///   "access_key_id": "AKIA...",
-    ///   "secret_access_key": "...",
-    ///   "session_token": null,        // opcional, para STS temp creds
-    ///   "chunk_size_bytes": 8388608   // opcional, default 8 MiB
+    ///   "version": 2,
+    ///   "protocol": "s3" | "ftp" | "sftp" | "smb",   // opcional, auto-detect
+    ///
+    ///   // Common
+    ///   "expires_at": "...",
+    ///
+    ///   // S3-specific
+    ///   "bucket": "...", "endpoint": "https://...", "region": "...",
+    ///   "prefix": "...", "access_key_id": "...", "secret_access_key": "...",
+    ///   "session_token": null, "chunk_size_bytes": 8388608,
+    ///
+    ///   // FTP-specific
+    ///   "ftp_host": "...", "ftp_port": 21, "ftp_username": "...",
+    ///   "ftp_password": "...", "ftp_path": "/uploads/", "ftp_passive": true,
+    ///   "ftp_ssl": false,
+    ///
+    ///   // SFTP-specific
+    ///   "sftp_host": "...", "sftp_port": 22, "sftp_username": "...",
+    ///   "sftp_password": "...", "sftp_key_path": null, "sftp_path": "/uploads/",
+    ///
+    ///   // SMB-specific
+    ///   "smb_share": "\\\\server\\share", "smb_username": "DOMAIN\\user",
+    ///   "smb_password": "...", "smb_path": "uploads\\"
     /// }
     /// </summary>
     internal static class ConfigFetcher
     {
-        /// <summary>
-        /// Fetch + parse + validate el config JSON. Devuelve null si falla
-        /// (mensaje en outError).
-        /// </summary>
-        public static async Task<UploadConfig> FetchAsync(string url, CancellationToken ct, Action<string> log)
+        public static async Task<UploadConfig> FetchAsync(string urlOrPath, CancellationToken ct, Action<string> log)
         {
-            if (string.IsNullOrWhiteSpace(url)) return Fail(log, "URL del config vacia");
-            if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(urlOrPath)) return Fail(log, "URL o path del config vacio");
+
+            string body;
+
+            if (urlOrPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                body = await FetchHttpsAsync(urlOrPath, ct, log).ConfigureAwait(false);
+            }
+            else if (urlOrPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             {
                 return Fail(log, "Solo HTTPS esta permitido (cert validation obligatoria). URL debe empezar con https://");
             }
+            else
+            {
+                // Local file path (Windows or Unix style)
+                body = ReadLocalFile(urlOrPath, log);
+            }
 
-            log("[+] HTTPS GET " + url);
-            string body;
+            if (string.IsNullOrEmpty(body)) return null;
+
+            // Parse JSON
+            UploadConfig config;
             try
             {
-                // HttpClient con default cert validation (ServicePointManager).
+                var serializer = new JavaScriptSerializer();
+                serializer.MaxJsonLength = 64 * 1024;
+                config = serializer.Deserialize<UploadConfig>(body);
+            }
+            catch (Exception ex)
+            {
+                return Fail(log, "JSON invalido: " + ex.Message);
+            }
+            if (config == null) return Fail(log, "JSON parseado pero resultado null");
+
+            // Validate version
+            if (config.Version != 1 && config.Version != 2)
+            {
+                return Fail(log, "Version del config no soportada: " + config.Version + " (esperado 1 o 2)");
+            }
+
+            // Validate expires_at
+            if (config.ExpiresAt == default(DateTime))
+            {
+                return Fail(log, "Falta expires_at en el config");
+            }
+            var now = DateTime.UtcNow;
+            var timeLeft = config.ExpiresAt - now;
+            if (timeLeft.TotalMinutes < 30)
+            {
+                return Fail(log, "Config EXPIRADO o por expirar (vence en " +
+                                 timeLeft.TotalMinutes.ToString("F0") + " min, " +
+                                 "minimo requerido 30 min). Pedile al operador un config nuevo.");
+            }
+
+            // Auto-detect protocol if not set
+            if (string.IsNullOrEmpty(config.Protocol))
+            {
+                config.Protocol = DetectProtocol(config);
+            }
+            else
+            {
+                config.Protocol = config.Protocol.ToLowerInvariant();
+            }
+
+            // Validate per-protocol required fields
+            ValidateProtocol(config, log);
+
+            // Defaults
+            if (config.ChunkSizeBytes <= 0 && config.Protocol == "s3")
+                config.ChunkSizeBytes = 8 * 1024 * 1024;
+            if (config.FtpPort <= 0 && config.Protocol == "ftp")
+                config.FtpPort = 21;
+            if (config.SftpPort <= 0 && config.Protocol == "sftp")
+                config.SftpPort = 22;
+
+            log("[+] Config OK: protocol=" + config.Protocol +
+                " expira en " + timeLeft.TotalMinutes.ToString("F0") + " min");
+            return config;
+        }
+
+        private static async Task<string> FetchHttpsAsync(string url, CancellationToken ct, Action<string> log)
+        {
+            log("[+] HTTPS GET " + url);
+            try
+            {
                 using (var handler = new HttpClientHandler())
                 using (var http = new HttpClient(handler))
                 {
@@ -56,84 +139,147 @@ namespace DfirUploaderUi
                     log("[<] HTTP " + statusCode + " " + resp.ReasonPhrase);
                     if (statusCode == 404)
                     {
-                        return Fail(log, "Config no encontrado en el server (404). El operador debe de generar uno nuevo.");
+                        Fail(log, "Config no encontrado en el server (404). El operador debe de generar uno nuevo.");
+                        return null;
                     }
                     if (!resp.IsSuccessStatusCode)
                     {
-                        return Fail(log, "Config no disponible (HTTP " + statusCode + "). Verifica la URL con el operador.");
+                        Fail(log, "Config no disponible (HTTP " + statusCode + "). Verifica la URL con el operador.");
+                        return null;
                     }
-                    body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                 }
             }
             catch (HttpRequestException ex)
             {
-                return Fail(log, "Error HTTPS: " + ex.Message + " (cert invalido? server caido? DNS?)");
+                Fail(log, "Error HTTPS: " + ex.Message);
+                return null;
             }
             catch (TaskCanceledException)
             {
-                return Fail(log, "Timeout (30s) fetching config");
+                Fail(log, "Timeout (30s) fetching config");
+                return null;
             }
-            catch (Exception ex)
-            {
-                return Fail(log, "Error desconocido fetching config: " + ex.GetType().Name + ": " + ex.Message);
-            }
+        }
 
-            // Parse JSON
-            UploadConfig config;
+        private static string ReadLocalFile(string path, Action<string> log)
+        {
+            log("[+] Leyendo config local: " + path);
             try
             {
-                var serializer = new JavaScriptSerializer();
-                serializer.MaxJsonLength = 64 * 1024; // 64 KB cap (config is small)
-                config = serializer.Deserialize<UploadConfig>(body);
+                // Trim quotes if present (e.g. user pastes a path with quotes from a shortcut)
+                path = path.Trim('"', '\'');
+                if (!File.Exists(path))
+                {
+                    Fail(log, "Archivo no encontrado: " + path);
+                    return null;
+                }
+                return File.ReadAllText(path);
             }
             catch (Exception ex)
             {
-                return Fail(log, "JSON invalido: " + ex.Message);
+                Fail(log, "Error leyendo archivo: " + ex.Message);
+                return null;
             }
-            if (config == null) return Fail(log, "JSON parseado pero resultado null");
+        }
 
-            // Validate required fields
-            var missing = new List<string>();
-            if (config.Version != 1) missing.Add("version (debe ser 1)");
-            if (string.IsNullOrWhiteSpace(config.Bucket)) missing.Add("bucket");
-            if (string.IsNullOrWhiteSpace(config.Endpoint)) missing.Add("endpoint");
-            if (string.IsNullOrWhiteSpace(config.Region)) missing.Add("region");
-            if (string.IsNullOrWhiteSpace(config.Prefix)) missing.Add("prefix");
-            if (config.ExpiresAt == default(DateTime)) missing.Add("expires_at");
-            if (string.IsNullOrWhiteSpace(config.AccessKeyId)) missing.Add("access_key_id");
-            if (string.IsNullOrWhiteSpace(config.SecretAccessKey)) missing.Add("secret_access_key");
-            if (missing.Count > 0)
+        private static string DetectProtocol(UploadConfig config)
+        {
+            // Try endpoint URL scheme first
+            var url = config.Endpoint ?? string.Empty;
+            if (url.StartsWith("s3://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
             {
-                return Fail(log, "Config incompleto. Faltan: " + string.Join(", ", missing));
+                return "s3";
             }
-
-            // Validate expires_at
-            var now = DateTime.UtcNow;
-            var timeLeft = config.ExpiresAt - now;
-            if (timeLeft.TotalMinutes < 30)
+            if (url.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase))
             {
-                return Fail(log, "Config EXPIRADO o por expirar (vence en " +
-                                 timeLeft.TotalMinutes.ToString("F0") + " min, " +
-                                 "minimo requerido 30 min). Pedile al operador un config nuevo.");
+                return "sftp";
             }
-
-            // Validate endpoint is HTTPS
-            if (!config.Endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            if (url.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase))
             {
-                return Fail(log, "Endpoint no es HTTPS: " + config.Endpoint);
+                return "ftp";
+            }
+            if (url.StartsWith("smb://", StringComparison.OrdinalIgnoreCase) ||
+                url.StartsWith("\\\\", StringComparison.OrdinalIgnoreCase))
+            {
+                return "smb";
             }
 
-            // Validate prefix
-            if (!config.Prefix.EndsWith("/")) config.Prefix += "/";
+            // Fallback: si tiene campos de un protocolo especifico
+            if (!string.IsNullOrEmpty(config.FtpHost)) return "ftp";
+            if (!string.IsNullOrEmpty(config.SftpHost)) return "sftp";
+            if (!string.IsNullOrEmpty(config.SmbShare)) return "smb";
 
-            // Default chunk size
-            if (config.ChunkSizeBytes <= 0) config.ChunkSizeBytes = 8 * 1024 * 1024; // 8 MiB
+            // Default: S3 (compatibilidad hacia atras con v1 configs)
+            return "s3";
+        }
 
-            log("[+] Config OK: bucket=" + config.Bucket +
-                " prefix=" + config.Prefix +
-                " expira en " + timeLeft.TotalMinutes.ToString("F0") + " min" +
-                " chunk=" + (config.ChunkSizeBytes / 1024 / 1024) + " MiB");
-            return config;
+        private static void ValidateProtocol(UploadConfig config, Action<string> log)
+        {
+            switch (config.Protocol)
+            {
+                case "s3":
+                    var missingS3 = new List<string>();
+                    if (string.IsNullOrWhiteSpace(config.Bucket)) missingS3.Add("bucket");
+                    if (string.IsNullOrWhiteSpace(config.Endpoint)) missingS3.Add("endpoint");
+                    if (string.IsNullOrWhiteSpace(config.Region)) missingS3.Add("region");
+                    if (string.IsNullOrWhiteSpace(config.Prefix)) missingS3.Add("prefix");
+                    if (string.IsNullOrWhiteSpace(config.AccessKeyId)) missingS3.Add("access_key_id");
+                    if (string.IsNullOrWhiteSpace(config.SecretAccessKey)) missingS3.Add("secret_access_key");
+                    if (missingS3.Count > 0)
+                    {
+                        throw new ArgumentException("Config S3 incompleto. Faltan: " + string.Join(", ", missingS3));
+                    }
+                    if (!config.Prefix.EndsWith("/")) config.Prefix += "/";
+                    if (!config.Endpoint.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
+                        !config.Endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new ArgumentException("Endpoint S3 debe empezar con https:// (o http:// solo para testing local)");
+                    }
+                    break;
+
+                case "ftp":
+                    var missingFtp = new List<string>();
+                    if (string.IsNullOrWhiteSpace(config.FtpHost)) missingFtp.Add("ftp_host");
+                    if (string.IsNullOrWhiteSpace(config.FtpUsername)) missingFtp.Add("ftp_username");
+                    if (missingFtp.Count > 0)
+                    {
+                        throw new ArgumentException("Config FTP incompleto. Faltan: " + string.Join(", ", missingFtp));
+                    }
+                    if (string.IsNullOrEmpty(config.FtpPath)) config.FtpPath = "/";
+                    if (!config.FtpPath.EndsWith("/")) config.FtpPath += "/";
+                    break;
+
+                case "sftp":
+                    var missingSftp = new List<string>();
+                    if (string.IsNullOrWhiteSpace(config.SftpHost)) missingSftp.Add("sftp_host");
+                    if (string.IsNullOrWhiteSpace(config.SftpUsername)) missingSftp.Add("sftp_username");
+                    if (string.IsNullOrEmpty(config.SftpPassword) && string.IsNullOrEmpty(config.SftpKeyPath))
+                    {
+                        missingSftp.Add("sftp_password o sftp_key_path");
+                    }
+                    if (missingSftp.Count > 0)
+                    {
+                        throw new ArgumentException("Config SFTP incompleto. Faltan: " + string.Join(", ", missingSftp));
+                    }
+                    if (string.IsNullOrEmpty(config.SftpPath)) config.SftpPath = "/";
+                    if (!config.SftpPath.EndsWith("/")) config.SftpPath += "/";
+                    break;
+
+                case "smb":
+                    var missingSmb = new List<string>();
+                    if (string.IsNullOrWhiteSpace(config.SmbShare)) missingSmb.Add("smb_share");
+                    if (string.IsNullOrWhiteSpace(config.SmbUsername)) missingSmb.Add("smb_username");
+                    if (missingSmb.Count > 0)
+                    {
+                        throw new ArgumentException("Config SMB incompleto. Faltan: " + string.Join(", ", missingSmb));
+                    }
+                    if (string.IsNullOrEmpty(config.SmbPath)) config.SmbPath = "\\";
+                    break;
+            }
         }
 
         private static UploadConfig Fail(Action<string> log, string msg)
@@ -146,19 +292,47 @@ namespace DfirUploaderUi
     }
 
     /// <summary>
-    /// Schema del config JSON (v1).
+    /// Schema del config JSON (v1 + v2).
     /// </summary>
     internal class UploadConfig
     {
         public int Version { get; set; }
+        public string Protocol { get; set; }
+
+        // S3-specific
         public string Bucket { get; set; }
         public string Endpoint { get; set; }
         public string Region { get; set; }
         public string Prefix { get; set; }
-        public DateTime ExpiresAt { get; set; }
         public string AccessKeyId { get; set; }
         public string SecretAccessKey { get; set; }
         public string SessionToken { get; set; }
         public long ChunkSizeBytes { get; set; }
+
+        // FTP-specific
+        public string FtpHost { get; set; }
+        public int FtpPort { get; set; }
+        public string FtpUsername { get; set; }
+        public string FtpPassword { get; set; }
+        public string FtpPath { get; set; }
+        public bool FtpPassive { get; set; }
+        public bool FtpSsl { get; set; }
+
+        // SFTP-specific
+        public string SftpHost { get; set; }
+        public int SftpPort { get; set; }
+        public string SftpUsername { get; set; }
+        public string SftpPassword { get; set; }
+        public string SftpKeyPath { get; set; }
+        public string SftpPath { get; set; }
+
+        // SMB-specific
+        public string SmbShare { get; set; }
+        public string SmbUsername { get; set; }
+        public string SmbPassword { get; set; }
+        public string SmbPath { get; set; }
+
+        // Common
+        public DateTime ExpiresAt { get; set; }
     }
 }

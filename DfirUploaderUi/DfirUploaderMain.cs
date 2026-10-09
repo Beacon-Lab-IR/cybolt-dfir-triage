@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
@@ -389,20 +388,21 @@ namespace DfirUploaderUi
         {
             if (_config == null) return;
             btnHealth.Enabled = false;
-            Log("[+] HEAD health check " + _config.Endpoint);
+            Log("[+] " + _config.Protocol.ToUpper() + " health check " + _config.Endpoint);
             try
             {
-                var uploader = new S3Uploader(_config, Log, new Progress<UploadProgress>(p => { }), CancellationToken.None);
+                var uploader = UploaderFactory.Create(_config, Log, new Progress<UploadProgress>(p => { }));
                 // Use a dummy key just to verify the endpoint accepts our creds
-                var len = await uploader.VerifyHeadAsync(_config.Prefix + "_health-probe-non-existent-key");
-                Log("[+] Health OK (Content-Length=" + len + ")");
+                var probeKey = BuildRemoteKey("_health-probe-non-existent-key");
+                var len = await uploader.VerifyAsync(probeKey, CancellationToken.None);
+                Log("[+] Health OK (size=" + len + ")");
             }
             catch (UploadException ux)
             {
-                // 404 is OK for non-existent key; we just want to confirm auth works
+                // 404 is OK for non-existent key (S3); we just want to confirm auth works
                 if (ux.HttpStatus == 404)
                 {
-                    Log("[+] Health OK (HEAD 404 esperado - bucket alcanzable con las credenciales)");
+                    Log("[+] Health OK (404 esperado - endpoint alcanzable con las credenciales)");
                 }
                 else
                 {
@@ -526,8 +526,8 @@ namespace DfirUploaderUi
             foreach (var t in filesToUpload)
             {
                 var fi = new FileInfo(t.Item1);
-                var s3Key = _config.Prefix + Path.GetFileName(fi.Name);
-                _auditLog.AddFile(fi.FullName, s3Key, t.Item2, "");
+                var remoteKey = BuildRemoteKey(fi.Name);
+                _auditLog.AddFile(fi.FullName, remoteKey, t.Item2, "");
             }
 
             // UI state
@@ -552,7 +552,20 @@ namespace DfirUploaderUi
                                  " (" + FormatBytes(_totalBytesUploaded) + "/" + FormatBytes(_totalBytesSelected) + ")";
             });
 
-            var uploader = new S3Uploader(_config, Log, progress, _cts.Token);
+            IUploader uploader;
+            try
+            {
+                uploader = UploaderFactory.Create(_config, Log, progress);
+            }
+            catch (Exception ex)
+            {
+                Log("[!] Factory fallo: " + ex.Message);
+                btnUpload.Enabled = _config != null;
+                btnSync.Enabled = true;
+                btnHealth.Enabled = _config != null;
+                btnCancel.Enabled = false;
+                return;
+            }
 
             int uploaded = 0;
             int failed = 0;
@@ -563,7 +576,7 @@ namespace DfirUploaderUi
                 {
                     _cts.Token.ThrowIfCancellationRequested();
                     var fi = new FileInfo(t.Item1);
-                    var s3Key = _config.Prefix + Path.GetFileName(fi.Name);
+                    var remoteKey = BuildRemoteKey(fi.Name);
 
                     // Hash first
                     Log("[+] SHA-256 " + Path.GetFileName(fi.FullName));
@@ -585,10 +598,10 @@ namespace DfirUploaderUi
                         continue;
                     }
 
-                    // Upload
+                    // Upload via IUploader (dispatched per protocol)
                     try
                     {
-                        var result = await uploader.UploadFileAsync(fi.FullName, s3Key, t.Item2, sha256);
+                        var result = await uploader.UploadFileAsync(fi.FullName, remoteKey, t.Item2, sha256, _cts.Token);
                         _auditLog.MarkFileResult(fi.FullName, result.ETag, result.UploadId, result.PartCount, "OK", null);
                         _totalBytesUploaded += t.Item2;
                         uploaded++;
@@ -614,25 +627,25 @@ namespace DfirUploaderUi
                     }
                 }
 
-                // Verify HEAD (best-effort)
+                // Post-upload verify (best-effort, protocol-agnostic)
                 if (cancelled == 0 && uploaded > 0)
                 {
-                    Log("[+] Post-upload HEAD verify...");
+                    Log("[+] Post-upload verify...");
                     foreach (var t in filesToUpload)
                     {
                         var fi = new FileInfo(t.Item1);
-                        var s3Key = _config.Prefix + Path.GetFileName(fi.Name);
+                        var remoteKey = BuildRemoteKey(fi.Name);
                         try
                         {
-                            var remoteSize = await uploader.VerifyHeadAsync(s3Key);
-                            if (remoteSize != t.Item2)
+                            var remoteSize = await uploader.VerifyAsync(remoteKey, _cts.Token);
+                            if (remoteSize >= 0 && remoteSize != t.Item2)
                             {
-                                Log("[!] HEAD size mismatch " + Path.GetFileName(fi.FullName) + ": local=" + t.Item2 + " remote=" + remoteSize);
+                                Log("[!] Verify size mismatch " + Path.GetFileName(fi.FullName) + ": local=" + t.Item2 + " remote=" + remoteSize);
                             }
                         }
                         catch (Exception vx)
                         {
-                            Log("[!] HEAD verify fallo " + Path.GetFileName(fi.FullName) + ": " + vx.Message);
+                            Log("[!] Verify fallo " + Path.GetFileName(fi.FullName) + ": " + vx.Message);
                         }
                     }
                 }
@@ -650,49 +663,24 @@ namespace DfirUploaderUi
                 var auditLocalPath = Path.Combine(outDir, "upload-audit-" + ts + ".json");
                 _auditLog.WriteToDisk(auditLocalPath, Log);
 
-                // Audit log: upload sidecar to bucket (best-effort)
+                // Audit log: upload sidecar via the same IUploader (protocol-agnostic)
                 try
                 {
-                    var sidecarKey = _config.Prefix + "audit-" + ts + ".json";
+                    var sidecarKey = BuildAuditSidecarKey(ts);
                     var json = _auditLog.Serialize();
-                    var bytes = System.Text.Encoding.UTF8.GetBytes(json);
-                    var uri = new Uri(_config.Endpoint.TrimEnd('/') + "/" + _config.Bucket + "/" + Uri.EscapeUriString(sidecarKey).Replace("%2F", "/"));
-                    var headers = new Dictionary<string, string>();
-                    var signed = SigV4Signer.SignRequest(
-                        "PUT",
-                        _config.Endpoint,
-                        "/" + _config.Bucket + "/" + sidecarKey,
-                        string.Empty,
-                        headers,
-                        PayloadHashMode.Sha256,
-                        bytes,
-                        _config.AccessKeyId,
-                        _config.SecretAccessKey,
-                        _config.Region,
-                        "s3",
-                        _config.SessionToken);
-                    using (var handler = new HttpClientHandler())
-                    using (var http = new HttpClient(handler))
-                    {
-                        http.Timeout = TimeSpan.FromSeconds(60);
-                        var content = new ByteArrayContent(bytes);
-                        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-                        foreach (var kv in signed) content.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-                        var resp = await http.PutAsync(uri, content).ConfigureAwait(false);
-                        if (resp.IsSuccessStatusCode)
-                        {
-                            Log("[+] Audit sidecar uploaded: s3://" + _config.Bucket + "/" + sidecarKey);
-                        }
-                        else
-                        {
-                            Log("[!] Audit sidecar upload HTTP " + (int)resp.StatusCode);
-                        }
-                    }
+                    var auditFile = Path.Combine(Path.GetTempPath(), "upload-audit-" + ts + ".json");
+                    File.WriteAllText(auditFile, json, new UTF8Encoding(false));
+                    var result = await uploader.UploadFileAsync(auditFile, sidecarKey, new FileInfo(auditFile).Length, "", _cts.Token);
+                    Log("[+] Audit sidecar uploaded: " + uploader.Protocol + "://" + sidecarKey);
+                    try { File.Delete(auditFile); } catch { }
                 }
                 catch (Exception ax)
                 {
                     Log("[!] Audit sidecar upload fallo: " + ax.Message);
                 }
+
+                // Best-effort: tell uploader to abort any in-flight
+                try { await uploader.AbortAllAsync(); } catch { }
 
                 // Reset UI
                 btnUpload.Enabled = _config != null;
@@ -701,6 +689,38 @@ namespace DfirUploaderUi
                 btnCancel.Enabled = false;
                 btnRescan.Enabled = true;
                 btnBrowse.Enabled = true;
+            }
+        }
+
+        private string BuildRemoteKey(string fileName)
+        {
+            // Per-protocol: build the remote key/prefix+filename
+            switch (_config.Protocol)
+            {
+                case "s3":
+                    return _config.Prefix + fileName;
+                case "ftp":
+                    return (_config.FtpPath ?? "/").TrimEnd('/') + "/" + fileName;
+                case "sftp":
+                    return (_config.SftpPath ?? "/").TrimEnd('/') + "/" + fileName;
+                case "smb":
+                    return (_config.SmbPath ?? "\\").TrimEnd('\\') + "\\" + fileName;
+                default:
+                    return fileName;
+            }
+        }
+
+        private string BuildAuditSidecarKey(string ts)
+        {
+            switch (_config.Protocol)
+            {
+                case "s3":
+                    return _config.Prefix + "audit-" + ts + ".json";
+                case "ftp":
+                case "sftp":
+                case "smb":
+                default:
+                    return "audit-" + ts + ".json";
             }
         }
 

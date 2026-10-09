@@ -1,19 +1,42 @@
 {
-  "_comment": "DFIR_UPLOADER_UI config template v1. El operador edita este archivo a mano y lo sube a un endpoint HTTPS (gist, beaconlab.us/uploads/<token>.json). El cliente solo recibe la URL del config, nunca ve el JSON. POST-INCIDENTE: borrar el config del endpoint + rotar la IAM key en la consola S3/AWS. NO commitees este archivo con valores reales al repo.",
+  "_comment": "DFIR_UPLOADER_UI config template v2 - multi-protocolo. El operador edita este archivo a mano y lo sube a un endpoint HTTPS (gist, beaconlab.us/uploads/<token>.json) o lo graba como archivo local en un USB. POST-INCIDENTE: borrar el config del endpoint + rotar la IAM key / cambiar password. NO commitear este archivo con valores reales al repo.",
 
-  "version": 1,
+  "version": 2,
+  "_protocol_comment": "Opcional. Si falta, se autodetecta del URL scheme o de los campos presentes. Valores: s3 | ftp | sftp | smb",
+  "protocol": "s3",
+
+  "expires_at": "YYYY-MM-DDTHH:MM:SSZ",
+
+  "_S3_comment": "Solo si protocol=s3 (o autodetectado por https:// en endpoint).",
   "bucket": "inc-lena",
   "endpoint": "https://inc-lena.s3.g.megas4.com",
   "region": "us-east-1",
   "prefix": "clients/EXAMPLE-CLIENT/incident-YYYY-MM-DD/",
-  "expires_at": "YYYY-MM-DDTHH:MM:SSZ",
-
   "access_key_id": "AKIA-REEMPLAZA-CON-TU-IAM-KEY",
   "secret_access_key": "REEMPLAZA-CON-TU-SECRET-KEY",
-
-  "_session_token_comment": "Solo si usas credenciales temporales STS (AWS STS, IAM role, etc). Dejar null si usas IAM user con key permanente.",
   "session_token": null,
+  "chunk_size_bytes": 8388608,
 
-  "_chunk_size_bytes_comment": "Tamanho de cada parte del multipart upload en bytes. Default 8 MiB (8388608). Minimo S3 = 5 MiB. Subir a 16-32 MiB si tenes buen bandwidth (>= 100 Mbps) y archivos > 1 GB.",
-  "chunk_size_bytes": 8388608
+  "_FTP_comment": "Solo si protocol=ftp. Reemplaza la seccion S3 con esto.",
+  "_ftp_host": "ftp.example.com",
+  "_ftp_port": 21,
+  "_ftp_username": "usuario",
+  "_ftp_password": "password",
+  "_ftp_path": "/uploads/incident-YYYY-MM-DD/",
+  "_ftp_passive": true,
+  "_ftp_ssl": false,
+
+  "_SFTP_comment": "Solo si protocol=sftp. Requiere sftp.exe en PATH (Windows 10+ OpenSSH Client).",
+  "_sftp_host": "sftp.example.com",
+  "_sftp_port": 22,
+  "_sftp_username": "usuario",
+  "_sftp_password": "password",
+  "_sftp_key_path": null,
+  "_sftp_path": "/uploads/incident-YYYY-MM-DD/",
+
+  "_SMB_comment": "Solo si protocol=smb. Usa net use para montar el share con credenciales.",
+  "_smb_share": "\\\\server\\share",
+  "_smb_username": "DOMAIN\\user",
+  "_smb_password": "password",
+  "_smb_path": "uploads\\incident-YYYY-MM-DD\\"
 }
