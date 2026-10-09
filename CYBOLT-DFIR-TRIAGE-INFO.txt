@@ -20,15 +20,13 @@ ARCHIVO
 
 SHA-256
 -------
-  f1e53e68d6477bc31a74c959125065c0dc65b363eebac9811850f6fc9009339d  CYBOLT-DFIR-TRIAGE-v5.3.0.iso
+  1ae08dfe4ed6d54247f15a2785a258476358940782aa9425e36cb480d7111e45  CYBOLT-DFIR-TRIAGE-v5.3.0.iso
 
 HASHES DE ARCHIVOS CRITICOS
 ----------------------------
   kape.exe                              : 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b
-  KAPE_TRIAGE_UI.exe                    : 9f6fe1471407ef787e31197a58c9b9cdea259c4148385b6314cbaf87bad63feb
-  RAM_CAPTURE_UI.exe                    : ceb8afd61ac2ab4e56d508d1e9b54892df96d8e0ed628c55c64b1e76f4433a9d
-  DFIR_UPLOADER_UI.exe                  : 6a52c92005c9e56b4e55e412f0a3472b41237916219bc7129cfc43b79e48fabf
-  KAPE_TRIAGE_UI.exe.config             : cd01de75bd5626c11bf2c1d9983f87b9f24ccabfe5edf5657df0870c27106ab7
+  CYBOLT_DFIR_TRIAGE.exe                : 48896b1a12b665d39f89ea93633b3e5a9ffc401b3448c2b2ec7d80561b29b5af
+  DFIR_UPLOADER_UI.exe                  : 748f0948cf2656b0e6a9208f90bcad289d02a02255b4189288f0fbf9001ee9fe
   KAPE_TRIAGE.cmd                       : da21dba98bcba3078f901e087500a2fa92a3b72be40594e88794403dd61558c5
   CHECK_COMPAT.cmd                      : 245a4ec94bcd5b1daaf17708155aa578817af84f812bcd9293f017e63b94edae
   Tools/kape.zip                        : 92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892
@@ -42,6 +40,34 @@ COMPATIBILIDAD (KAPE 1.3.0.2 + scripts + UI)
   Windows 7 SP1             : OK si .NET 4.5.2 instalado
   Server 2012+ / 2008 R2 SP1 : OK
   XP / Vista                : NO SOPORTADO
+
+CYBOLT_DFIR_TRIAGE.exe detalles (v5.3.0 - WIZARD):
+  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
+  Tamano        : 44 KB
+  Plataforma    : x86-64
+  Manifest      : requireAdministrator (UAC forzado al arranque)
+  Version       : 5.3.0
+  Licencia      : MIT (Copyright (c) 2026 Cybolt)
+  Funcion       : Wizard unificado de 5 pasos que reemplaza los binarios
+                 KAPE_TRIAGE_UI.exe y RAM_CAPTURE_UI.exe (ahora removidos).
+                 Pasos:
+                   1. Bienvenida (opciones: capturar RAM, cmd wrapper)
+                   2. Deteccion del entorno (CD-ROM, output drive DFIR_OUTPUT,
+                      RAM fisica, espacio libre)
+                   3. KapeTriage (run kape.exe con stage desde CD-ROM a disco
+                      de salida, SHA-256 streaming del ZIP resultante)
+                   4. RAM Capture (run winpmem con check >= 95% de RAM para
+                      exito pese a exit != 0, SHA-256 streaming del .raw)
+                   5. Resumen final con paths + SHA-256 de cada output + logs
+                 Equipos aislados (sin red durante captura): este es el flujo
+                 completo sin tocar la red. La subida se hace aparte con
+                 DFIR_UPLOADER_UI.exe en una VM con internet.
+  Dependencias  : System.Management (RAM detection, BCL).
+  Limites       : Requiere CD-ROM montado con kape.exe y winpmem. Disco
+                 DFIR_OUTPUT montado como NTFS con label exacto. Si no hay
+                 red pero el cliente quiere subir igual, entregar el VMDK
+                 en mano o via SMB preconfigurado.
+  Operativa     : MANUAL_OPERATIVO.txt seccion 5 (flujo rapido) + 6 (paso a paso)
 
 DFIR_UPLOADER_UI.exe detalles:
   Tecnologia    : Windows Forms (.NET Framework 4.5.2)
@@ -72,26 +98,10 @@ DFIR_UPLOADER_UI.exe detalles:
   Template JSON  : specs/004-dfir-uploader/config-template.json
   Operativa     : MANUAL_OPERATIVO.txt seccion 11 (DFIR_UPLOADER)
 
-KAPE_TRIAGE_UI.exe detalles:
-  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
-  Tamano        : 43 KB
-  Plataforma    : x86-64
-  Manifest      : requireAdministrator (UAC forzado al arranque)
-  Version       : 5.2.13
-  Licencia      : MIT (Copyright (c) 2026 Cybolt)
-
-RAM_CAPTURE_UI.exe detalles:
-  Tecnologia    : Windows Forms (.NET Framework 4.5.2)
-  Tamano        : 29 KB
-  Plataforma    : x86-64
-  Manifest      : requireAdministrator (UAC forzado al arranque)
-  Version       : 5.2.20
-  Licencia      : MIT (Copyright (c) 2026 Cybolt)
-  Funcion       : Envoltorio GUI para winpmem_mini_x64_rc2.exe. Auto-detecta
-                 CD-ROM y disco de salida (label DFIR_OUTPUT), valida espacio
-                 libre (RAM + 10% overhead), lanza winpmem con Process
-                 redirigido, parsea progreso a ProgressBar, calcula SHA-256
-                 nativo .NET al finalizar.
+KAPE_TRIAGE_UI.exe y RAM_CAPTURE_UI.exe:
+  REMOVIDOS en v5.3.0. Reemplazados por CYBOLT_DFIR_TRIAGE.exe (wizard unificado).
+  Si necesitas las versiones anteriores (5.2.x), descarga el ISO v5.2.20 desde
+  el GitHub Release correspondiente.
 
   Mejoras v5.2.20 vs v5.2.19:
     - MEJORA: KAPE_TRIAGE_UI ahora tiene checkbox "Lanzar KAPE via

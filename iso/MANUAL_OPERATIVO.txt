@@ -12,8 +12,9 @@ quiere ir rapido, siga el README.txt (version de un solo doble-clic).
 CYBOLT-DFIR-TRIAGE ISO v5.2.17 (build 2026-09-23)
 
   - KAPE 1.3.0.2 (Kroll Cyber, enero 2024, .NET Framework 4.5.2)
-  - KAPE_TRIAGE_UI.exe: interfaz visual WinForms .NET 4.5.2 - v5.2.13
-  - RAM_CAPTURE_UI.exe: GUI para captura de RAM con winpmem - v5.2.17
+  - CYBOLT_DFIR_TRIAGE.exe: wizard unificado WinForms .NET 4.5.2 - v5.3.0
+    (KapeTriage + RAM Capture en 5 pasos)
+  - DFIR_UPLOADER_UI.exe: GUI separada para subida a S3/FTP/SFTP/SMB - v5.3.0
   - KAPE_TRIAGE.cmd: script batch equivalente (mismo flujo, modo consola)
   - CHECK_COMPAT.cmd: pre-flight de compatibilidad
   - Tools/kape.zip: distribucion KAPE completa original (553 MiB)
@@ -235,7 +236,7 @@ Notas importantes:
 - Si la VM es Windows XP o Vista, KAPE no esta soportado. Necesita
   otro metodo (live CD linux + FTK Imager o similar).
 
-Antes de correr KAPE_TRIAGE_UI.exe, abra la UI y verifique el pre-flight
+Antes de correr CYBOLT_DFIR_TRIAGE.exe, abra el wizard y verifique la deteccion
 (los checks aparecen en verde "OK" o rojo "FAIL"). Si todo OK, el boton
 "Ejecutar adquisicion" se habilita.
 
@@ -323,9 +324,9 @@ Por VM:
 
 5.5  Elegir UNA de las dos opciones:
 
-      OPCION A - VISUAL (RECOMENDADA):
+      OPCION A - VISUAL (RECOMENDADA - WIZARD):
       --------------------------------
-        Doble clic en KAPE_TRIAGE_UI.exe.
+        Doble clic en CYBOLT_DFIR_TRIAGE.exe.
         - Windows pide elevacion (UAC). Aceptar SI (corre como Admin).
         - Espera a que termine el pre-flight (los checks aparecen en
           verde con "OK" o en rojo con "FAIL").
@@ -354,7 +355,7 @@ Por VM:
                 "Remove from virtual machine"  (NO "delete from datastore").
 
 --------------------------------------------------------------------------------
-6. QUE HACE KAPE_TRIAGE_UI.exe (paso a paso interno)
+6. QUE HACE EL WIZARD CYBOLT_DFIR_TRIAGE.exe (paso a paso interno)
 --------------------------------------------------------------------------------
 Si necesita entender que esta pasando o si algo falla, esto es lo que
 la UI ejecuta:
@@ -383,7 +384,7 @@ la UI ejecuta:
 --------------------------------------------------------------------------------
 7. SI LA UI NO FUNCIONA (modo manual)
 --------------------------------------------------------------------------------
-Si KAPE_TRIAGE_UI.exe no arranca (UAC bloqueado, sin .NET 4.5.2,
+Si CYBOLT_DFIR_TRIAGE.exe no arranca (UAC bloqueado, sin .NET 4.5.2,
 entorno raro), puede ejecutar KAPE manualmente. Reemplace <LETRA_ISO>
 y <LETRA_OUTPUT> por las letras reales de su sistema.
 
@@ -445,15 +446,15 @@ c) Descargar TODO el disco. Mantener el descriptor y el -flat juntos en
 10. CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
 --------------------------------------------------------------------------------
 Si el incidente lo justifica (ransomware con persistencia, credenciales
-en memoria, conexiones activas, etc.), capturar la RAM ANTES de correr
-KapeTriage. La GUI RAM_CAPTURE_UI.exe v5.2.17 es la ruta recomendada.
-El batch CAPTURE_RAM.cmd queda como fallback si no se puede lanzar GUI.
+en memoria, conexiones activas, etc.), capturar la RAM. En el wizard
+CYBOLT_DFIR_TRIAGE.exe v5.3.0 es el paso 4 (opcional, recomendado).
+El batch CAPTURE_RAM.cmd queda como fallback si no se puede lanzar la GUI.
 
 10.1 Opcion A (GUI - recomendada):
   a) Montar CYBOLT-DFIR-TRIAGE-v5.2.18.iso como CD-ROM en la VM afectada.
   b) Encender la VM. Aceptar el prompt UAC que aparece al lanzar la
      GUI (manifest requireAdministrator).
-  c) Click derecho en D:\RAM_CAPTURE_UI.exe -> "Ejecutar como
+  c) Click derecho en D:\CAPTURE_RAM.cmd -> "Ejecutar como
      administrador" (o doble click si UAC esta habilitado).
   d) La UI auto-detecta:
        - Letra del CD-ROM donde esta Tools\Memory\winpmem_mini_x64_rc2.exe
