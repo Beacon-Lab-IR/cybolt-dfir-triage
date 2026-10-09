@@ -1,5 +1,5 @@
 ================================================================================
-  KAPE-MEDIA - Adquisicion DFIR con doble clic
+  CYBOLT-DFIR-TRIAGE - Adquisicion DFIR con doble clic
   Caso: ransomware sobre hypervisor (PVE / VMware ESXi) - VMs Windows
   afectadas, sin red durante la adquisicion.
   v5.2.18 (incluye GUI de captura de RAM con deteccion robusta de exito pese a exit != 0).
@@ -16,14 +16,14 @@ COMPATIBILIDAD SOPORTADA
 
 LO QUE TIENES QUE HACER (VERSION CORTA)
 ----------------------------------------
-  1.  Sube KAPE-MEDIA-v5.2.18.iso al datastore del hipervisor (carpeta iso/).
+  1.  Sube CYBOLT-DFIR-TRIAGE-v5.2.18.iso al datastore del hipervisor (carpeta iso/).
   2.  En la VM afectada: monta la ISO como CD/DVD virtual.
   3.  Conecta DFIR-OUTPUT.vmdk como segundo disco. Si es la primera vez
       o el disco es nuevo: inicialo como GPT, particion NTFS, label
       "DFIR_OUTPUT". Si ya esta inicializado de una corrida anterior,
       conectalo y listo.
   4.  Enciende la VM. Espera a que cargue Windows.
-  5.  Abre el Explorador de archivos, ve al CD/DVD ("KAPE-MEDIA").
+  5.  Abre el Explorador de archivos, ve al CD/DVD ("CYBOLT-DFIR-TRIAGE").
   6.  Elige UNA de estas dos opciones:
 
       OPCION A (visual, recomendada):
@@ -109,8 +109,8 @@ QUE GENERA AL TERMINAR
   E:\_kape_stage\                                     (staging + Modules\bin)
 
 Antes de subir la ISO al datastore:
-  macOS / Linux :  shasum -a 256 KAPE-MEDIA-v5.2.18.iso
-  Windows       :  certutil -hashfile KAPE-MEDIA-v5.2.18.iso SHA256
+  macOS / Linux :  shasum -a 256 CYBOLT-DFIR-TRIAGE-v5.2.18.iso
+  Windows       :  certutil -hashfile CYBOLT-DFIR-TRIAGE-v5.2.18.iso SHA256
 El hash esperado esta en SHA256SUMS.txt.
 
 ================================================================================

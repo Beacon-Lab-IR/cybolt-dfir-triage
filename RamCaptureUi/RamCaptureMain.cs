@@ -80,7 +80,7 @@ namespace RamCaptureUi
             // Title
             var lblTitle = new Label
             {
-                Text = "Captura de RAM (WinPmem v4.0.rc1) - KAPE-MEDIA v" + AppInfo.Version,
+                Text = "Captura de RAM (WinPmem v4.0.rc1) - CYBOLT-DFIR-TRIAGE v" + AppInfo.Version,
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 Location = new Point(12, y),
                 AutoSize = true,
@@ -388,7 +388,7 @@ namespace RamCaptureUi
             {
                 MessageBox.Show(
                     "No se encuentra el binario de WinPmem:\n  " + winpmemExe + "\n\n" +
-                    "Verifica que la ISO KAPE-MEDIA este montada y el path sea correcto.",
+                    "Verifica que la ISO CYBOLT-DFIR-TRIAGE este montada y el path sea correcto.",
                     AppInfo.BinName, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }

@@ -1,4 +1,4 @@
-# Test Harness — KAPE-MEDIA ISO
+# Test Harness — CYBOLT-DFIR-TRIAGE ISO
 
 Harness de pruebas para validar la lógica de `KAPE_TRIAGE.cmd` y `CHECK_COMPAT.cmd`
 sin necesitar un Windows ni ESXi real. Corre 100% en macOS / Linux usando bash

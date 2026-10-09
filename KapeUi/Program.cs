@@ -12,8 +12,44 @@ using System.Windows.Forms;
 namespace KapeUi
 {
     /// <summary>
-    /// KAPE_TRIAGE_UI v5.2.13 - Interfaz visual para adquisicion DFIR con KAPE.
+    /// KAPE_TRIAGE_UI v5.2.20 - Interfaz visual para adquisicion DFIR con KAPE.
     ///                                          By Cybolt, MIT License.
+    ///
+    /// Mejoras v5.2.20 (cmd.exe wrapper mode para KAPE):
+    ///   - v5.2.19 suprimia el spam de "Unable to update Console Title"
+    ///     en el log. v5.2.20 va mas alla: lo EVITA dandole a KAPE una
+    ///     consola real. Checkbox opt-in "Lanzar KAPE via cmd.exe" en el
+    ///     panel avanzado. Cuando esta marcado, la GUI lanza:
+    ///       cmd.exe /c start "KAPE" /B /WAIT "kape.exe" [args]
+    ///     KAPE hereda la consola de cmd, Console.Title funciona, no hay
+    ///     spam. /B = background, no abre ventana popup. /WAIT bloquea
+    ///     hasta que KAPE termine para que WaitForExit() funcione.
+    ///   - La diferencia con v5.2.17 (winpmem) es el /WAIT explicito:
+    ///     para KAPE es critico porque sino el cmd.exe retorna antes
+    ///     y no podemos leer su exit code.
+    ///   - Operador: marcarlo si vas a correr KapeTriage en servers o VMs
+    ///     con muchos modulos (DC, file server). En workstations chicas
+    ///     no es necesario.
+    ///
+    /// Mejoras v5.2.19 (filtrar spam de Console Title):
+    ///   - v5.2.19 descartaba las lineas "Unable to update Console Title"
+    ///     en el log via IsConsoleTitleNoise. v5.2.20 es preferible:
+    ///     evita el problema en vez de ocultarlo. Pero el filtro se
+    ///     mantiene por defensa en profundidad.
+    ///
+    /// Mejoras v5.2.14 (filtrar spam de Console Title):
+    ///   - Bug observado 2026-10-08 corriendo KapeTriage en un server
+    ///     (32+ GB RAM, DC con muchos .evtx): KAPE 1.3.0.2 internamente
+    ///     llama `Console.Title = "..."` para mostrar progreso, pero
+    ///     como la GUI lo lanza con RedirectStandardOutput=true +
+    ///     CreateNoWindow=true, el handle de consola no es valido y
+    ///     el runtime de .NET loguea "Unable to update Console Title"
+    ///     en stderr ~8-10 veces por segundo durante fase 3. Es ruido
+    ///     puro (no afecta la captura), pero llena el log.
+    ///   - v5.2.14 filtra esas lineas en el handler de OutputDataReceived
+    ///     y ErrorDataReceived via el helper IsConsoleTitleNoise. El
+    ///     operador ve el progreso real de KAPE (copias de archivos,
+    ///     modulos completados) sin el spam.
     ///
     /// Mejoras v5.2.13 (RAM capture standalone + licencia MIT):
     ///   - v5.2.12 ya hacia KapeTriage end-to-end. Faltaba RAM dump
@@ -88,7 +124,7 @@ namespace KapeUi
     ///     E:\_kape_stage\kape.exe y lo logueamos en:
     ///       a) el log en vivo (LogInfo)
     ///       b) el NOTES file (con size + expected SHA-256)
-    ///   - El operador puede comparar contra KAPE-MEDIA-INFO.txt
+    ///   - El operador puede comparar contra CYBOLT-DFIR-TRIAGE-INFO.txt
     ///     (expected: 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b).
     ///   - Si KAPE fue reempaquetado por alguien con un ISO modificado,
     ///     el hash difiere y esto lo detecta. Tambien documenta la
@@ -281,6 +317,18 @@ namespace KapeUi
         private readonly Button _btnResetCmd = new Button { Text = "Restablecer", Width = 100, Height = 26, FlatStyle = FlatStyle.Flat };
         private readonly Button _btnCopyCmd = new Button { Text = "Copiar", Width = 80, Height = 26, FlatStyle = FlatStyle.Flat };
 
+        // v5.2.20: Checkbox opt-in para lanzar KAPE via cmd.exe (start /B /WAIT).
+        // Esto le da a KAPE una consola real (heredada de cmd) para que las
+        // llamadas a Console.Title que KAPE hace internamente para mostrar
+        // progreso funcionen, en vez de fallar con "Unable to update Console
+        // Title" 8-10 veces/segundo. Validado 2026-10-08 con server DC.
+        private readonly CheckBox _chkKapeCmdWrapper = new CheckBox {
+            Text = "Lanzar KAPE via cmd.exe (evita spam de Console Title)",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            AutoSize = false,
+        };
+
         // ====== Phase indicator (6 stages) ======
         private readonly Label[] _phaseLabels = new Label[6];
         private readonly string[] _phaseNames = {
@@ -445,9 +493,10 @@ namespace KapeUi
             _pnlAdvanced.Dock = DockStyle.Fill;
             _pnlAdvanced.Visible = false;
 
-            // Inner panel del acordeon: bar de botones + textbox
-            var advInner = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            // Inner panel del acordeon: bar de botones + textbox + checkbox cmd wrapper
+            var advInner = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
             advInner.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            advInner.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
             advInner.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             var advBtnBar = new Panel { Dock = DockStyle.Fill };
@@ -456,7 +505,16 @@ namespace KapeUi
             advBtnBar.Controls.Add(_btnResetCmd);
             advBtnBar.Controls.Add(_btnCopyCmd);
             advInner.Controls.Add(advBtnBar, 0, 0);
-            advInner.Controls.Add(_txtCommand, 0, 1);
+
+            // Wrapper checkbox: lanza KAPE con cmd /c start /B /WAIT
+            // asi KAPE hereda una consola real y Console.Title funciona
+            var advChkBar = new Panel { Dock = DockStyle.Fill, Padding = new Padding(4, 4, 4, 0) };
+            _chkKapeCmdWrapper.Dock = DockStyle.Fill;
+            _chkKapeCmdWrapper.Checked = false;
+            advChkBar.Controls.Add(_chkKapeCmdWrapper);
+            advInner.Controls.Add(advChkBar, 0, 1);
+
+            advInner.Controls.Add(_txtCommand, 0, 2);
             _pnlAdvanced.Controls.Add(advInner);
 
             _btnAdvancedToggle.Click += (s, e) => {
@@ -970,7 +1028,7 @@ namespace KapeUi
 
                 // v5.2.9: SHA-256 verification del kape.exe staged. Lo
                 // logueamos en NOTES + en el log en vivo para que el
-                // operador pueda comparar contra KAPE-MEDIA-INFO.txt
+                // operador pueda comparar contra CYBOLT-DFIR-TRIAGE-INFO.txt
                 // (hash esperado: 6167472179d0b5b028560dcc84ea1a2e3cb2d7128dd18e4e9278263b86a4318b).
                 // Si KAPE fue reempaquetado por alguien con un ISO
                 // modificado, el hash va a diferir y esto lo detecta.
@@ -1005,26 +1063,53 @@ namespace KapeUi
                 return;
             }
 
-            var psi = new ProcessStartInfo
+            ProcessStartInfo psi;
+            if (_chkKapeCmdWrapper.Checked)
             {
-                FileName = stagedKape,
-                Arguments = args,
-                // v5.2.4: WorkingDirectory = stageDir (E:\_kape_stage\, escribible).
-                // Tanto CheckDefaultDirectories (cwd-relative .kape) como
-                // los writes de Modules\bin (Assembly.Location-relative)
-                // caen en un dir escribible.
-                WorkingDirectory = stageDir,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                // v5.2.11: redirigir stdin a un pipe. KAPE 1.3.0.2 al final
-                // del Main() llama Console.ReadKey() que bloquea hasta que
-                // llegue una tecla (incluso con --gui). Cerrando el pipe
-                // despues de Start, ReadKey ve EOF y retorna -1 inmediato,
-                // KAPE sale del Main(), exit code 0, WaitForExit() retorna.
-                RedirectStandardInput = true
-            };
+                // v5.2.20: lanzar KAPE via cmd.exe /c start /B /WAIT.
+                // Da a KAPE una consola real (heredada de cmd) para que las
+                // llamadas a Console.Title que KAPE hace internamente para
+                // mostrar progreso funcionen. Sin esto, KAPE imprime spam
+                // de "Unable to update Console Title" 8-10 veces/segundo
+                // en el log (ruido puro, no afecta la captura).
+                // start /B = background, no abre ventana popup.
+                // /WAIT = esperar a que KAPE termine antes de salir.
+                LogInfo("Lanzando KAPE via cmd.exe wrapper (evita Console Title spam).");
+                psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = "/c start \"KAPE\" /B /WAIT \"\"\"" + stagedKape + "\"\" " + args,
+                    WorkingDirectory = stageDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true
+                };
+            }
+            else
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName = stagedKape,
+                    Arguments = args,
+                    // v5.2.4: WorkingDirectory = stageDir (E:\_kape_stage\, escribible).
+                    // Tanto CheckDefaultDirectories (cwd-relative .kape) como
+                    // los writes de Modules\bin (Assembly.Location-relative)
+                    // caen en un dir escribible.
+                    WorkingDirectory = stageDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    // v5.2.11: redirigir stdin a un pipe. KAPE 1.3.0.2 al final
+                    // del Main() llama Console.ReadKey() que bloquea hasta que
+                    // llegue una tecla (incluso con --gui). Cerrando el pipe
+                    // despues de Start, ReadKey ve EOF y retorna -1 inmediato,
+                    // KAPE sale del Main(), exit code 0, WaitForExit() retorna.
+                    RedirectStandardInput = true
+                };
+            }
 
             _cts = new CancellationTokenSource();
             int exitCode = -1;
@@ -1033,8 +1118,14 @@ namespace KapeUi
             {
                 LogInfo($"> {stagedKape} {args}");
                 _kapeProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
-                _kapeProcess.OutputDataReceived += (s, e) => { if (e.Data != null) LogRaw(e.Data); };
-                _kapeProcess.ErrorDataReceived  += (s, e) => { if (e.Data != null) LogError("[kape stderr] " + e.Data); };
+                _kapeProcess.OutputDataReceived += (s, e) => {
+                    if (e.Data != null && !IsConsoleTitleNoise(e.Data))
+                        LogRaw(e.Data);
+                };
+                _kapeProcess.ErrorDataReceived  += (s, e) => {
+                    if (e.Data != null && !IsConsoleTitleNoise(e.Data))
+                        LogError("[kape stderr] " + e.Data);
+                };
 
                 SetPhase(1, PhaseState.Done);
                 SetPhase(2, PhaseState.Active);
@@ -1316,6 +1407,24 @@ namespace KapeUi
         private void LogError(string msg) { LogColored("[ERROR] " + msg, Color.FromArgb(255, 110, 110)); }
         private void LogRaw(string msg)   { LogColored(msg, Color.FromArgb(220, 220, 220)); }
 
+        /// <summary>
+        /// True si la linea es ruido cosmetico del .NET runtime: KAPE se
+        /// lanza desde .NET con RedirectStandardOutput=true + CreateNoWindow=true,
+        /// asi que Console.Title = "..." falla porque el handle de consola
+        /// no es valido. El runtime de .NET loguea este mensaje en stderr
+        /// cada vez que kape.exe intenta actualizar el titulo. No afecta
+        /// la captura. Lo descartamos para no spammear al operador.
+        /// Bug observado 2026-10-08 con KAPE 1.3.0.2 ejecutando KapeTriage
+        /// en server (32+ GB RAM, DC, muchos .evtx): spam de 8-10 lineas
+        /// por segundo durante fase 3.
+        /// </summary>
+        private static bool IsConsoleTitleNoise(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return true;
+            return line.StartsWith("Unable to update Console Title", StringComparison.Ordinal)
+                || line.StartsWith("Unable to update console title", StringComparison.OrdinalIgnoreCase);
+        }
+
         private void LogColored(string msg, Color color)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}\r\n";
@@ -1579,6 +1688,6 @@ namespace KapeUi
 
     internal static class AppInfo
     {
-        public static readonly string Version = "5.2.13";
+        public static readonly string Version = "5.2.20";
     }
 }

@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("DFIR Evidence Uploader para S3-compatible - By Cybolt, MIT License")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Cybolt")]
-[assembly: AssemblyProduct("KAPE-MEDIA / DFIR_UPLOADER_UI")]
+[assembly: AssemblyProduct("CYBOLT-DFIR-TRIAGE / DFIR_UPLOADER_UI")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 Cybolt")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

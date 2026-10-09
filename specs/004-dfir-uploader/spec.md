@@ -1,8 +1,8 @@
-# Spec — DFIR_UPLOADER_UI (KAPE-MEDIA v5.3.0)
+# Spec — DFIR_UPLOADER_UI (CYBOLT-DFIR-TRIAGE v5.3.0)
 
 ## Contexto
 
-`KAPE-MEDIA-v5.x.iso` se entrega a clientes en drills DFIR para adquisicion offline de VMs Windows afectadas. Hasta v5.2.20, el flujo termina con la captura (KAPE ZIP + RAM .raw) en `E:\DFIR-OUTPUT\` (label `DFIR_OUTPUT`, montado en `DFIR-OUTPUT.vmdk`). La entrega al equipo DFIR se hace **a mano**: detach del VMDK, attach a una VM con internet, subida manual a Mega.nz o similar.
+`CYBOLT-DFIR-TRIAGE-v5.x.iso` se entrega a clientes en drills DFIR para adquisicion offline de VMs Windows afectadas. Hasta v5.2.20, el flujo termina con la captura (KAPE ZIP + RAM .raw) en `E:\DFIR-OUTPUT\` (label `DFIR_OUTPUT`, montado en `DFIR-OUTPUT.vmdk`). La entrega al equipo DFIR se hace **a mano**: detach del VMDK, attach a una VM con internet, subida manual a Mega.nz o similar.
 
 **Problema**: ese ultimo paso es friccion alta, requiere que el operador intervenga en la maquina del cliente o que coordine una sesion remota. El resultado: o se sube sin verificar (cadena de custodia fragil) o no se sube (entrega lenta, evidencia esperando en disco dias).
 
@@ -14,7 +14,7 @@ Nueva GUI `DFIR_UPLOADER_UI.exe` que el cliente corre en su propia VM con la ISO
 
 ### US-1 — Operador entrega el ISO al cliente
 
-El operador le pasa al cliente `KAPE-MEDIA-v5.3.0.iso`. El cliente monta la ISO en su VM y adjunta `DFIR-OUTPUT.vmdk` como segundo disco (mismo flujo que v5.2.x).
+El operador le pasa al cliente `CYBOLT-DFIR-TRIAGE-v5.3.0.iso`. El cliente monta la ISO en su VM y adjunta `DFIR-OUTPUT.vmdk` como segundo disco (mismo flujo que v5.2.x).
 
 ### US-2 — Operador prepara el config remoto
 

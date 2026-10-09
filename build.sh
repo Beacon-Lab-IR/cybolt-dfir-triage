@@ -6,7 +6,7 @@
 #   ./build.sh 5.2.18             # fuerza la version 5.2.18
 #
 # Salidas:
-#   dist/KAPE-MEDIA-v<VERSION>.iso    ISO final listo para subir al datastore
+#   dist/CYBOLT-DFIR-TRIAGE-v<VERSION>.iso    ISO final listo para subir al datastore
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ else
     fi
 fi
 
-echo ">>> Building KAPE-MEDIA v$VERSION"
+echo ">>> Building CYBOLT-DFIR-TRIAGE v$VERSION"
 
 # 0) Overlay Cybolt (iso/) si existe
 if [ -d iso ]; then
@@ -67,14 +67,14 @@ fi
 # 3) Regenerar ISO
 echo ">>> Generando ISO..."
 mkdir -p dist
-ISO_NAME="KAPE-MEDIA-v$VERSION.iso"
+ISO_NAME="CYBOLT-DFIR-TRIAGE-v$VERSION.iso"
 
 if [ "$(uname)" = "Darwin" ]; then
     hdiutil makehybrid -joliet -iso -no-emul-boot -no-boot \
         -o "dist/$ISO_NAME" staging/
 elif [ "$(uname)" = "Linux" ]; then
     genisoimage -R -J -joliet-long \
-        -V "KAPE-MEDIA-v$VERSION" \
+        -V "CYBOLT-DFIR-TRIAGE-v$VERSION" \
         -o "dist/$ISO_NAME" staging/
 else
     echo "ERROR: OS no soportado: $(uname)"
@@ -88,7 +88,7 @@ ISO_SIZE=$(stat -f%z "dist/$ISO_NAME" 2>/dev/null || stat -c%s "dist/$ISO_NAME")
 
 echo ""
 echo "==================================================================="
-echo "  BUILD OK: KAPE-MEDIA v$VERSION"
+echo "  BUILD OK: CYBOLT-DFIR-TRIAGE v$VERSION"
 echo "==================================================================="
 echo ""
 echo "  Archivo : dist/$ISO_NAME"
@@ -99,7 +99,7 @@ echo "  Subilo a tu datastore via vCenter Web UI:"
 echo "    https://<vcenter-host>/ui -> <nodo> -> datastore1 -> Upload"
 echo ""
 echo "  O crea un GitHub Release:"
-echo "    gh release create v$VERSION dist/$ISO_NAME --repo <org>/kape-media-releases \\"
-echo "        --title \"KAPE-MEDIA v$VERSION\" \\"
+echo "    gh release create v$VERSION dist/$ISO_NAME --repo <org>/cybolt-dfir-triage-releases \\"
+echo "        --title \"CYBOLT-DFIR-TRIAGE v$VERSION\" \\"
 echo "        --notes \"SHA-256: $ISO_SHA\""
 echo ""

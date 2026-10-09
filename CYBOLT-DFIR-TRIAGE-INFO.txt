@@ -1,5 +1,5 @@
 ================================================================================
-  KAPE-MEDIA-v5.2.20.iso - Resumen y verificacion
+  CYBOLT-DFIR-TRIAGE-v5.2.20.iso - Resumen y verificacion
   Caso: ransomware Windows sobre VMware ESXi / Proxmox VE - sin red, offline
 ================================================================================
 
@@ -8,19 +8,19 @@ VERSION
   Version      : 5.2.20
   Build        : 2026-09-23
   Plataforma   : Windows (.NET Framework 4.5.2+)
-  Archivo ISO  : KAPE-MEDIA-v5.2.20.iso
+  Archivo ISO  : CYBOLT-DFIR-TRIAGE-v5.2.20.iso
 
 ARCHIVO
 -------
-  Nombre  : KAPE-MEDIA-v5.2.20.iso
+  Nombre  : CYBOLT-DFIR-TRIAGE-v5.2.20.iso
   Tamano  : 588 883 968 bytes (562 MiB / 589 MB decimal)
   Formato : ISO9660 con extensiones Joliet (no booteable)
-  Volumen : KAPE-MEDIA-v5.2.20
+  Volumen : CYBOLT-DFIR-TRIAGE-v5.2.20
   Generado en : macOS via hdiutil makehybrid
 
 SHA-256
 -------
-  74f604d064dcdd1b8b1f60086bcc16f4fd3fa396cead579ff9e295ee22e1f8ca  KAPE-MEDIA-v5.2.20.iso
+  74f604d064dcdd1b8b1f60086bcc16f4fd3fa396cead579ff9e295ee22e1f8ca  CYBOLT-DFIR-TRIAGE-v5.2.20.iso
 
 HASHES DE ARCHIVOS CRITICOS
 ----------------------------
@@ -214,7 +214,7 @@ RAM_CAPTURE_UI.exe detalles:
 
 FLUJO DE CAPTURA DE RAM (Opcion A: GUI - Opcion B: batch fallback)
 -------------------------------------------------------------------
-  1. Operador monta KAPE-MEDIA-v5.2.20.iso como CD-ROM en la VM
+  1. Operador monta CYBOLT-DFIR-TRIAGE-v5.2.20.iso como CD-ROM en la VM
      afectada (sin red, VMDK DFIR_OUTPUT adjunto como segundo disco).
   2. Si quiere GUI: abre cmd como Administrator, navega a la ISO,
      doble clic en RAM_CAPTURE_UI.exe. Acepta UAC.

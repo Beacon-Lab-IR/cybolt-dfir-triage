@@ -1,15 +1,15 @@
-# KAPE-MEDIA Releases
+# CYBOLT-DFIR-TRIAGE Releases
 
 Los `.iso` finales NO se commitean al tree (limite 100 MB de GitHub) y se
-distribuyen como assets de [GitHub Releases](https://github.com/Beacon-Lab-IR/kape-media/releases).
+distribuyen como assets de [GitHub Releases](https://github.com/Beacon-Lab-IR/cybolt-dfir-triage/releases).
 
 ## Que hay aca
 
 Cada release es un tag `v<VERSION>` con el ISO adjunto:
 
 ```
-v5.2.18  -> KAPE-MEDIA-v5.2.18.iso  (561 MiB)
-v5.2.17  -> KAPE-MEDIA-v5.2.17.iso
+v5.2.18  -> CYBOLT-DFIR-TRIAGE-v5.2.18.iso  (561 MiB)
+v5.2.17  -> CYBOLT-DFIR-TRIAGE-v5.2.17.iso
 ...
 ```
 
@@ -17,19 +17,19 @@ v5.2.17  -> KAPE-MEDIA-v5.2.17.iso
 
 ```bash
 # Ultimo release
-gh release download --repo Beacon-Lab-IR/kape-media
+gh release download --repo Beacon-Lab-IR/cybolt-dfir-triage
 
 # Release especifico
-gh release download v5.2.18 --repo Beacon-Lab-IR/kape-media
+gh release download v5.2.18 --repo Beacon-Lab-IR/cybolt-dfir-triage
 
 # A un directorio
 gh release download v5.2.18 \
-    --repo Beacon-Lab-IR/kape-media \
-    --pattern "KAPE-MEDIA-*.iso" \
+    --repo Beacon-Lab-IR/cybolt-dfir-triage \
+    --pattern "CYBOLT-DFIR-TRIAGE-*.iso" \
     --dir /tmp/
 ```
 
-Web: https://github.com/Beacon-Lab-IR/kape-media/releases/latest
+Web: https://github.com/Beacon-Lab-IR/cybolt-dfir-triage/releases/latest
 
 ## Como publicar un release
 
@@ -57,22 +57,22 @@ Si tenes `staging/` local completo:
 ./build.sh 5.2.19
 
 gh release create v5.2.19 \
-    --repo Beacon-Lab-IR/kape-media \
-    --title "KAPE-MEDIA v5.2.19" \
+    --repo Beacon-Lab-IR/cybolt-dfir-triage \
+    --title "CYBOLT-DFIR-TRIAGE v5.2.19" \
     --notes "SHA en output de build.sh" \
-    dist/KAPE-MEDIA-v5.2.19.iso
+    dist/CYBOLT-DFIR-TRIAGE-v5.2.19.iso
 ```
 
 ## Como verificar integridad
 
 ```bash
 gh release download v5.2.18 \
-    --repo Beacon-Lab-IR/kape-media \
-    --pattern "KAPE-MEDIA-*.iso" \
-    --dir /tmp/kape-media-v5.2.18/
+    --repo Beacon-Lab-IR/cybolt-dfir-triage \
+    --pattern "CYBOLT-DFIR-TRIAGE-*.iso" \
+    --dir /tmp/cybolt-dfir-triage-v5.2.18/
 
-cd /tmp/kape-media-v5.2.18/
-shasum -a 256 KAPE-MEDIA-v5.2.18.iso
+cd /tmp/cybolt-dfir-triage-v5.2.18/
+shasum -a 256 CYBOLT-DFIR-TRIAGE-v5.2.18.iso
 # comparar con el SHA-256 de las notas del Release
 ```
 

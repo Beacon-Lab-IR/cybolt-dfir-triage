@@ -57,7 +57,7 @@ jobs:
           cp -a iso/. staging/
           # VERSION.txt: actualizar cabecera con la version del release
           {
-            echo "KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso - Version ${{ steps.get_version.outputs.VERSION }}"
+            echo "CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }}.iso - Version ${{ steps.get_version.outputs.VERSION }}"
             echo ""
             echo "Build       : $(date -u +%Y-%m-%d)"
             tail -n +4 iso/VERSION.txt
@@ -107,7 +107,7 @@ jobs:
         run: |
           cd staging
           {
-            echo "SHA256SUMS - KAPE-MEDIA v${{ steps.get_version.outputs.VERSION }} (build $(date -u +%Y-%m-%d))"
+            echo "SHA256SUMS - CYBOLT-DFIR-TRIAGE v${{ steps.get_version.outputs.VERSION }} (build $(date -u +%Y-%m-%d))"
             echo "============================================="
             echo ""
             echo "Archivos criticos (verificar contra ISO despues de montar):"
@@ -163,10 +163,10 @@ jobs:
       - name: Generar ISO
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          ISO_NAME="KAPE-MEDIA-v${VERSION}.iso"
+          ISO_NAME="CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
           mkdir -p dist
           genisoimage -R -J -joliet-long \
-            -V "KAPE-MEDIA-v${VERSION}" \
+            -V "CYBOLT-DFIR-TRIAGE-v${VERSION}" \
             -o "dist/$ISO_NAME" \
             staging/
           ls -lh "dist/$ISO_NAME"
@@ -175,7 +175,7 @@ jobs:
         id: hash
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          ISO_NAME="KAPE-MEDIA-v${VERSION}.iso"
+          ISO_NAME="CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
           ISO_SHA=$(sha256sum "dist/$ISO_NAME" | awk '{print $1}')
           echo "ISO_SHA=$ISO_SHA" >> "$GITHUB_OUTPUT"
           echo "ISO size: $(stat -c%s "dist/$ISO_NAME") bytes"
@@ -187,7 +187,7 @@ jobs:
           VERSION: ${{ steps.get_version.outputs.VERSION }}
           ISO_SHA: ${{ steps.hash.outputs.ISO_SHA }}
         run: |
-          ISO_PATH="dist/KAPE-MEDIA-v${VERSION}.iso"
+          ISO_PATH="dist/CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
           NOTES=$(cat <<EOF
           ISO no-booteable para adquisicion DFIR sobre VMware/Proxmox.
 
@@ -209,10 +209,10 @@ jobs:
           Verificar con:
 
           \`\`\`bash
-          shasum -a 256 KAPE-MEDIA-v${VERSION}.iso
+          shasum -a 256 CYBOLT-DFIR-TRIAGE-v${VERSION}.iso
           \`\`\`
 
-          Codigo fuente: https://github.com/Beacon-Lab-IR/kape-media
+          Codigo fuente: https://github.com/Beacon-Lab-IR/cybolt-dfir-triage
 
           By Cybolt, MIT License.
           EOF
@@ -227,7 +227,7 @@ jobs:
           else
             gh release create "v${VERSION}" \
               --repo "${{ github.repository }}" \
-              --title "KAPE-MEDIA v${VERSION}" \
+              --title "CYBOLT-DFIR-TRIAGE v${VERSION}" \
               --notes "${NOTES}" \
               "${ISO_PATH}"
           fi
@@ -248,6 +248,6 @@ jobs:
         if: success()
         run: |
           echo "## Release v${{ steps.get_version.outputs.VERSION }} publicada"
-          echo "ISO: dist/KAPE-MEDIA-v${{ steps.get_version.outputs.VERSION }}.iso"
+          echo "ISO: dist/CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }}.iso"
           echo "SHA-256: ${{ steps.hash.outputs.ISO_SHA }}"
           echo "URL: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }}"

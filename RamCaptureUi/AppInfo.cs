@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("RAM Capture GUI para adquisicion DFIR - By Cybolt, MIT License")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Cybolt")]
-[assembly: AssemblyProduct("KAPE-MEDIA / RAM_CAPTURE_UI")]
+[assembly: AssemblyProduct("CYBOLT-DFIR-TRIAGE / RAM_CAPTURE_UI")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 Cybolt")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

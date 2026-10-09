@@ -62,7 +62,7 @@ namespace DfirUploaderUi
 
         public DfirUploaderMain()
         {
-            Text = "DFIR Uploader - KAPE-MEDIA v" + ApplicationVersion + " - By Cybolt";
+            Text = "DFIR Uploader - CYBOLT-DFIR-TRIAGE v" + ApplicationVersion + " - By Cybolt";
             Width = 980;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -85,7 +85,7 @@ namespace DfirUploaderUi
             // Title
             var lblTitle = new Label
             {
-                Text = "DFIR Uploader - Subida de evidencia a S3-compatible (KAPE-MEDIA v" + ApplicationVersion + ")",
+                Text = "DFIR Uploader - Subida de evidencia a S3-compatible (CYBOLT-DFIR-TRIAGE v" + ApplicationVersion + ")",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 Location = new Point(12, y),
                 AutoSize = true,

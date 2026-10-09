@@ -1,4 +1,4 @@
-# Tasks — DFIR_UPLOADER_UI (KAPE-MEDIA v5.3.0)
+# Tasks — DFIR_UPLOADER_UI (CYBOLT-DFIR-TRIAGE v5.3.0)
 
 Lista ordenada por dependencia. Cada task tiene ID para trazabilidad con spec.md y plan.md.
 
@@ -65,11 +65,11 @@ Lista ordenada por dependencia. Cada task tiene ID para trazabilidad con spec.md
 - [ ] Modificar `staging/SHA256SUMS.txt` con hash del nuevo binario.
 - [ ] Modificar `staging/README.txt` agregar Opcion D (subida de evidencia).
 - [ ] Modificar `staging/MANUAL_OPERATIVO.txt` agregar seccion 11 (subida con DFIR_UPLOADER). Renumerar la actual seccion 11 (CHECKLIST) a 12.
-- [ ] Modificar `KAPE-MEDIA-INFO.txt` agregar bloque "DFIR_UPLOADER_UI.exe detalles" (~40 lineas).
+- [ ] Modificar `CYBOLT-DFIR-TRIAGE-INFO.txt` agregar bloque "DFIR_UPLOADER_UI.exe detalles" (~40 lineas).
 
 ## T-09: ISO regen + drill E2E (FOLLOW-UP, requiere Windows)
 
-- [ ] `bash build.sh 5.3.0` regenera ISO con `KAPE-MEDIA-v5.3.0.iso`.
+- [ ] `bash build.sh 5.3.0` regenera ISO con `CYBOLT-DFIR-TRIAGE-v5.3.0.iso`.
 - [ ] Verificar SHA-256 final del ISO.
 - [ ] Drill E2E en Windows VM:
   - [ ] Doble clic DFIR_UPLOADER_UI.exe → UAC prompt aparece.

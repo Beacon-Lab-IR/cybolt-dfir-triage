@@ -116,7 +116,7 @@ echo "       >> kape (harness mock):      $KAPE"
 
 if [ ! -f "$KAPE_REAL" ]; then
     fail "No se encuentra kape.exe en $ISO_DIR"
-    suggest "Verificar que la ISO KAPE-MEDIA esta montada como CD/DVD virtual."
+    suggest "Verificar que la ISO CYBOLT-DFIR-TRIAGE esta montada como CD/DVD virtual."
     exit 1
 fi
 ok "kape.exe accesible (real, no se ejecuta en el harness)."

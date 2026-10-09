@@ -1,6 +1,6 @@
 ================================================================================
-  DRILL DFIR CON KAPE-MEDIA - GUIA OPERATIVA PARA TECNICO DE TI
-  KAPE-MEDIA v5.2.18  |  VMware vSphere / ESXi  |  Windows 10/11 victim
+  DRILL DFIR CON CYBOLT-DFIR-TRIAGE - GUIA OPERATIVA PARA TECNICO DE TI
+  CYBOLT-DFIR-TRIAGE v5.2.18  |  VMware vSphere / ESXi  |  Windows 10/11 victim
 ================================================================================
 
 Esta guia esta escrita para un tecnico de TI que ejecuta el drill por primera
@@ -19,7 +19,7 @@ Advertencia:  esta guia describe una adquisicion forense en VMs de un
 PARTE 1: RESUMEN EJECUTIVO
 ================================================================================
 
-QUE ES KAPE-MEDIA
+QUE ES CYBOLT-DFIR-TRIAGE
 -----------------
 Es una ISO booteable-readonly que contiene KAPE 1.3.0.2 (Kroll), winpmem
 4.0.rc1 (captura de RAM), scripts de Windows, y un manual operativo. La ISO
@@ -86,7 +86,7 @@ PARTE 2: PRE-REQUISITOS
         espacio para copiar)
   [ ] DFIR-OUTPUT.vmdk creado (16 GB, NTFS, label "DFIR_OUTPUT"). Si no
       existe, ver seccion CREAR DISCO DE SALIDA abajo.
-  [ ] KAPE-MEDIA-v5.2.18.iso subida al datastore (ver seccion SUBIR ISO).
+  [ ] CYBOLT-DFIR-TRIAGE-v5.2.18.iso subida al datastore (ver seccion SUBIR ISO).
   [ ] Snapshot defensivo de la VM-A ANTES de empezar.
 
 
@@ -102,7 +102,7 @@ A.1 Opcion A (preferida): Web UI de vCenter/ESXi
     2. Login con credenciales de vCenter
     3. Ir a: Datacenter -> <cluster> -> <nodo> -> datastore1
     4. Pestana "Storage" -> "Upload" -> "ISO file"
-    5. Seleccionar: KAPE-MEDIA-v5.2.18.iso
+    5. Seleccionar: CYBOLT-DFIR-TRIAGE-v5.2.18.iso
     6. Esperar a que suba (~2-3 min para 562 MiB por LAN gigabit)
     7. Verificar que aparece en la lista con tamano 588,883,968 bytes
 
@@ -115,7 +115,7 @@ A.2 Opcion B: ESXi shell (SSH)
          ls -la
        y luego copy desde el share. O usar scp desde este Mac.
     4. Verificar integridad:
-         sha256sum /vmfs/volumes/datastore1/iso/KAPE-MEDIA-v5.2.18.iso
+         sha256sum /vmfs/volumes/datastore1/iso/CYBOLT-DFIR-TRIAGE-v5.2.18.iso
        Hash esperado: 51f4a3172073f10e230c9eae273a57266b9e2c45f502ccb555c13af06f6d9978
 
 A.3 Opcion C: API REST con curl (si el API upload no rompe SSL)
@@ -159,7 +159,7 @@ C.1 Snapshot defensivo (RECOMENDADO)
 
 C.2 Verificar que la ISO esta montada como CD-ROM
     vCenter: VM-A -> Edit Settings
-    - CD/DVD drive 1 -> Datastore ISO File -> KAPE-MEDIA-v5.2.18.iso
+    - CD/DVD drive 1 -> Datastore ISO File -> CYBOLT-DFIR-TRIAGE-v5.2.18.iso
     - Connect at power on: SI
     - Status: Connected (check)
     Si no esta: Add New Device -> CD/DVD -> ISO desde datastore.
@@ -450,5 +450,5 @@ Contacto del equipo IR: _____________________________
 
 ================================================================================
 FIN DE LA GUIA. By Cybolt, MIT License.
-KAPE-MEDIA v5.2.18 - DFIR drill flow sobre VMware.
+CYBOLT-DFIR-TRIAGE v5.2.18 - DFIR drill flow sobre VMware.
 ================================================================================

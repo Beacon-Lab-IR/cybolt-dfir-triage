@@ -1,4 +1,4 @@
-# KAPE-MEDIA
+# CYBOLT-DFIR-TRIAGE
 
 [![Version](https://img.shields.io/badge/version-v5.2.18-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
@@ -15,7 +15,7 @@ Desarrollado por **Cybolt**. Licencia MIT.
 
 ## Que hace
 
-KAPE-MEDIA automatiza la captura de evidencia forense de una VM Windows
+CYBOLT-DFIR-TRIAGE automatiza la captura de evidencia forense de una VM Windows
 infectada (ransomware, intrusion, etc.) y la entrega en un disco de
 salida dedicado que viaja entre VMs como contenedor forense. Todo se
 ejecuta sin red, preservando la cadena de custodia.
@@ -49,14 +49,14 @@ Web UI de vCenter/ESXi (recomendado):
 
 1. Datacenter -> [cluster] -> [nodo] -> datastore1
 2. Storage -> Upload -> ISO file
-3. Seleccionar `KAPE-MEDIA-v5.2.18.iso`
+3. Seleccionar `CYBOLT-DFIR-TRIAGE-v5.2.18.iso`
 
 ### 2. Adjuntar a la VM objetivo
 
 Con la VM objetivo **prendida** (sin reboot):
 
 1. vCenter: VM-A -> Edit Settings
-2. New device -> CD/DVD Drive -> Datastore ISO File -> `KAPE-MEDIA-v5.2.18.iso`
+2. New device -> CD/DVD Drive -> Datastore ISO File -> `CYBOLT-DFIR-TRIAGE-v5.2.18.iso`
 3. New device -> Existing Hard Disk -> `DFIR-OUTPUT.vmdk` (SCSI 0:1)
 4. Network Adapter 1 -> Connected: **desconectado**
 
@@ -84,7 +84,7 @@ incluido en el ISO o el repo.
 
 ```bash
 # Hash del ISO (debe coincidir con VERSION.txt)
-shasum -a 256 KAPE-MEDIA-v5.2.18.iso
+shasum -a 256 CYBOLT-DFIR-TRIAGE-v5.2.18.iso
 # Esperado: 51f4a3172073f10e230c9eae273a57266b9e2c45f502ccb555c13af06f6d9978
 
 # Hash de los archivos dentro del ISO
@@ -117,10 +117,10 @@ regenerar el ISO con:
 
 ```bash
 hdiutil makehybrid -joliet -iso -no-emul-boot -no-boot \
-    -o KAPE-MEDIA-v5.2.18.iso staging/    # macOS
+    -o CYBOLT-DFIR-TRIAGE-v5.2.18.iso staging/    # macOS
 ```
 
-(En Linux: `genisoimage -R -J -o KAPE-MEDIA-v5.2.18.iso staging/`)
+(En Linux: `genisoimage -R -J -o CYBOLT-DFIR-TRIAGE-v5.2.18.iso staging/`)
 
 ---
 
