@@ -21,11 +21,14 @@ REM    - USB de evidencia en D:\ (NTFS o exFAT, >= 25 GB libres)
 REM    - NO stagear a C:\. Todo corre desde la USB.
 REM
 REM  USO:
-REM    1. Conectar la USB de evidencia (letra D:)
-REM    2. Verificar que la carpeta D:\KAPE\ este completa (ver layout arriba)
-REM    3. Click derecho sobre RUN-KAPE.bat -> Ejecutar como administrador
+REM    1. Conectar la USB de evidencia
+REM    2. Verificar que la carpeta X:\KAPE\ este completa (ver layout arriba)
+REM    3. Abrir CMD como Administrador
+REM    4. Ejecutar:
+REM         X:\KAPE\RUN-KAPE.bat              <- si la USB esta en D:
+REM         X:\KAPE\RUN-KAPE.bat E            <- si esta en E: (o F:, G:, ...)
 REM
-REM  Si la USB aparece con otra letra (E:, F:, ...), editar OUT_LET linea 35.
+REM  El primer argumento es la letra de la USB de salida. Default: D
 REM
 REM  AUTOR: Cybolt DFIR (Beacon-Lab-IR)
 REM  Repo:  github.com/Beacon-Lab-IR/cybolt-dfir-triage
@@ -45,6 +48,12 @@ set "MODULES_DIR=%KAPE_DIR%\Modules"
 REM --- Parametros de adquisicion ---
 set "TSOURCE=C:\"
 set "OUT_LET=D"
+if not "%~1"=="" (
+    set "OUT_LET=%~1"
+    REM Strip trailing : y slash si el analista paso "E:" o "E:\"
+    if "%OUT_LET:~-1%"==":" set "OUT_LET=%OUT_LET:~0,-1%"
+    if "%OUT_LET:~-1%"=="\" set "OUT_LET=%OUT_LET:~0,-1%"
+)
 
 REM --- Fijar cwd al directorio del script (paths relativas funcionan) ---
 cd /d "%KAPE_DIR%"
