@@ -3,17 +3,29 @@ REM ============================================================
 REM  RUN-KAPE.bat - Cybolt DFIR acquisition wrapper
 REM  Companion to targets-full.txt (operator-caused incident IR)
 REM
+REM  LAYOUT POR DEFECTO (todo en la misma USB, letra D:):
+REM    D:\KAPE\                              <- instalacion KAPE
+REM    ├── kape.exe
+REM    ├── RUN-KAPE.bat                      <- este archivo
+REM    ├── targets-full.txt
+REM    ├── Targets\
+REM    ├── Compound\
+REM    └── Modules\
+REM    D:\%COMPUTERNAME%-YYYYMMDD-HHMMSS\    <- bundle de salida (sibling)
+REM
 REM  REQUISITOS:
 REM    - kape.exe, targets-full.txt, Targets\, Compound\, Modules\
 REM      deben estar en la MISMA carpeta que este .bat
 REM    - Ejecutar como Administrador (clic derecho -> Ejecutar como administrador)
-REM    - USB de evidencia en E:\ (NTFS o exFAT, >= 25 GB libres)
+REM    - USB de evidencia en D:\ (NTFS o exFAT, >= 25 GB libres)
+REM    - NO stagear a C:\. Todo corre desde la USB.
 REM
 REM  USO:
-REM    1. Copiar la carpeta KAPE\ completa a una ubicacion escribible
-REM       (ej. C:\KAPE\ o USB E:\KAPE\)
-REM    2. Abrir CMD como Administrador y hacer cd a esa carpeta
-REM    3. Ejecutar: RUN-KAPE.bat
+REM    1. Conectar la USB de evidencia (letra D:)
+REM    2. Verificar que la carpeta D:\KAPE\ este completa (ver layout arriba)
+REM    3. Click derecho sobre RUN-KAPE.bat -> Ejecutar como administrador
+REM
+REM  Si la USB aparece con otra letra (E:, F:, ...), editar OUT_LET linea 35.
 REM
 REM  AUTOR: Cybolt DFIR (Beacon-Lab-IR)
 REM  Repo:  github.com/Beacon-Lab-IR/cybolt-dfir-triage
@@ -65,9 +77,9 @@ if errorlevel 1 (
     echo  [ERROR] El directorio %KAPE_DIR% es de solo lectura (CD-ROM?).
     echo  KAPE necesita escribir archivos de estado junto a kape.exe.
     echo.
-    echo  SOLUCION: copiar toda la carpeta KAPE\ a disco writable primero:
-    echo    xcopy /E /I /Y %KAPE_DIR% C:\KAPE\
-    echo  Luego correr desde C:\KAPE\RUN-KAPE.bat
+    echo  SOLUCION: copiar toda la carpeta KAPE\ a una USB writable:
+    echo    xcopy /E /I /Y %KAPE_DIR% D:\KAPE\
+    echo  Luego correr desde D:\KAPE\RUN-KAPE.bat
     echo.
     pause
     exit /b 1
