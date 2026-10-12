@@ -52,7 +52,7 @@ if [ ! -f "$WINPMEM_PATH" ]; then
         "https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe"
 fi
 
-ACTUAL_SHA=$(sha256sum "$WINPMEM_PATH" | awk '{print $1}')
+ACTUAL_SHA=$( (sha256sum "$WINPMEM_PATH" 2>/dev/null || shasum -a 256 "$WINPMEM_PATH") | awk '{print $1}')
 if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
     echo "ERROR: winpmem SHA-256 mismatch"
     echo "  expected: $EXPECTED_SHA"
@@ -79,7 +79,7 @@ else
 fi
 
 # 4) Calcular SHA-256 final
-ISO_SHA=$(sha256sum "dist/$ISO_NAME" | awk '{print $1}')
+ISO_SHA=$( (sha256sum "dist/$ISO_NAME" 2>/dev/null || shasum -a 256 "dist/$ISO_NAME") | awk '{print $1}')
 ISO_SIZE=$(stat -f%z "dist/$ISO_NAME" 2>/dev/null || stat -c%s "dist/$ISO_NAME")
 
 echo ""

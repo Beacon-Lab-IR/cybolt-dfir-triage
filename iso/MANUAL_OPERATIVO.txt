@@ -9,11 +9,11 @@ quiere ir rapido, siga el README.txt (version de un solo doble-clic).
 --------------------------------------------------------------------------------
 0. VERSION DEL PAQUETE
 --------------------------------------------------------------------------------
-CYBOLT-DFIR-TRIAGE ISO v5.2.17 (build 2026-09-23)
+CYBOLT-DFIR-TRIAGE ISO v5.3.1 (build 2026-10-12)
 
   - KAPE 1.3.0.2 (Kroll Cyber, enero 2024, .NET Framework 4.5.2)
-  - CYBOLT_DFIR_TRIAGE.exe: wizard unificado WinForms .NET 4.5.2 - v5.3.0
-    (KapeTriage + RAM Capture en 5 pasos)
+  - CYBOLT_DFIR_TRIAGE.exe: wizard unificado WinForms .NET 4.5.2 - v5.3.1
+    (KapeTriage + RAM Capture opcional en 5 pasos)
   - DFIR_UPLOADER_UI.exe: GUI separada para subida a S3/FTP/SFTP/SMB - v5.3.0
   - KAPE_TRIAGE.cmd: script batch equivalente (mismo flujo, modo consola)
   - CHECK_COMPAT.cmd: pre-flight de compatibilidad
@@ -21,6 +21,28 @@ CYBOLT-DFIR-TRIAGE ISO v5.2.17 (build 2026-09-23)
   - Tools/Memory/winpmem_mini_x64_rc2.exe: captura de RAM (Velocidex v4.0.rc1)
   - Tools/Memory/CAPTURE_RAM.cmd: wrapper batch (fallback si GUI no aplica)
   - LICENSE: MIT License - Copyright (c) 2026 Cybolt
+
+Cambios criticos de v5.3.1:
+  - UX: la captura de RAM ahora es OPCIONAL en el wizard
+    (CYBOLT_DFIR_TRIAGE.exe). El checkbox "Capturar RAM despues de
+    KapeTriage" en la pantalla de Bienvenida arranca DESMARCADO
+    (default OFF). Caso de uso: VMs con poca RAM (< 8 GB) o cuando
+    el triage inicial no requiere memoria volatil. Si no se marca,
+    el wizard va directo de KapeTriage (paso 3) al Resumen (paso 5).
+    Para activar la captura de RAM: volver a Bienvenida con < Back
+    y marcar el checkbox antes de hacer Next. La evidencia persistente
+    en el ZIP de KapeTriage sigue siendo suficiente para el triage
+    inicial (procesos, conexiones, claves DPAPI -> no, esos solo en
+    RAM; pero eventos, registro, MFT, prefetch, scheduled tasks, etc
+    -> si, en el ZIP).
+
+Cambios criticos de v5.3.0:
+  - NUEVO: wizard consolidado CYBOLT_DFIR_TRIAGE.exe reemplaza a
+    KAPE_TRIAGE_UI.exe y RAM_CAPTURE_UI.exe (los dos UIs anteriores
+    fueron eliminados del ISO). 5 pasos: Welcome -> Detect -> Kape
+    -> RAM -> Summary. DFIR_UPLOADER_UI.exe se mantiene como GUI
+    separada para la subida a S3/FTP/SFTP/SMB (varios equipos donde
+    se ejecuta la captura estan aislados de la red).
 
 Cambios criticos de v5.2.18:
   - FIX CRITICO: si el archivo .raw quedo escrito al >=95% de la RAM

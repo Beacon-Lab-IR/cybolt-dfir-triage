@@ -2,7 +2,7 @@
   CYBOLT-DFIR-TRIAGE - Adquisicion DFIR con doble clic
   Caso: ransomware sobre hypervisor (PVE / VMware ESXi) - VMs Windows
   afectadas, sin red durante la adquisicion.
-  v5.3.0 (wizard unificado KapeTriage + RAM Capture + upload separado).
+  v5.3.1 (wizard unificado KapeTriage + RAM Capture opcional + upload separado).
 ================================================================================
 
 COMPATIBILIDAD SOPORTADA
@@ -16,7 +16,7 @@ COMPATIBILIDAD SOPORTADA
 
 LO QUE TIENES QUE HACER (VERSION CORTA)
 ----------------------------------------
-  1.  Sube CYBOLT-DFIR-TRIAGE-v5.3.0.iso al datastore del hipervisor.
+  1.  Sube CYBOLT-DFIR-TRIAGE-v5.3.1.iso al datastore del hipervisor.
   2.  En la VM afectada: monta la ISO como CD/DVD virtual.
   3.  Conecta DFIR-OUTPUT.vmdk como segundo disco. Si es la primera vez
       o el disco es nuevo: inicialo como GPT, particion NTFS, label
@@ -28,10 +28,12 @@ LO QUE TIENES QUE HACER (VERSION CORTA)
         Doble clic en CYBOLT_DFIR_TRIAGE.exe
         - Windows muestra UAC. Acepta con "Si" (corre como Administrador).
         - El wizard te guia por 5 pasos:
-            1. Bienvenida (opciones: capturar RAM, cmd wrapper)
+            1. Bienvenida (opciones: capturar RAM [opt-in, default OFF],
+               cmd wrapper)
             2. Deteccion del entorno (CD-ROM, output drive, RAM)
             3. KapeTriage (run KAPE, genera ZIP)
-            4. RAM Capture (run winpmem, genera .raw) - opcional
+            4. RAM Capture (run winpmem, genera .raw) - solo si la
+               opcion de paso 1 esta activa. Si no, salta a 5.
             5. Resumen final con SHA-256 de cada output
         - Al terminar, los outputs quedan en E:\DFIR-OUTPUT\.
 
@@ -49,8 +51,8 @@ LO QUE TIENES QUE HACER (VERSION CORTA)
 
 CONTENIDO DE LA ISO
 -------------------
-  CYBOLT_DFIR_TRIAGE.exe   Wizard unificado WinForms (.NET 4.5.2) - v5.3.0
-                           (KapeTriage + RAM Capture en 5 pasos)
+  CYBOLT_DFIR_TRIAGE.exe   Wizard unificado WinForms (.NET 4.5.2) - v5.3.1
+                           (KapeTriage + RAM Capture opcional en 5 pasos)
   DFIR_UPLOADER_UI.exe      GUI separada para subida a S3/FTP/SFTP/SMB - v5.3.0
   KAPE_TRIAGE.cmd          Script batch equivalente (mismo flujo, headless)
   CHECK_COMPAT.cmd         Verificador de requisitos. Genera
@@ -77,8 +79,8 @@ QUE GENERA AL TERMINAR
   E:\_kape_stage\                                      (staging + Modules\bin)
 
 Antes de subir la ISO al datastore:
-  macOS / Linux :  shasum -a 256 CYBOLT-DFIR-TRIAGE-v5.3.0.iso
-  Windows       :  certutil -hashfile CYBOLT-DFIR-TRIAGE-v5.3.0.iso SHA256
+  macOS / Linux :  shasum -a 256 CYBOLT-DFIR-TRIAGE-v5.3.1.iso
+  Windows       :  certutil -hashfile CYBOLT-DFIR-TRIAGE-v5.3.1.iso SHA256
 El hash esperado esta en SHA256SUMS.txt.
 
 ================================================================================

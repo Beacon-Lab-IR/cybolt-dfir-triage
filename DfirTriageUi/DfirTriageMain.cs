@@ -59,7 +59,7 @@ namespace DfirTriageUi
 
         public DfirTriageMain()
         {
-            Text = "CYBOLT DFIR Triage Wizard v5.3.0 - By Cybolt";
+            Text = "CYBOLT DFIR Triage Wizard v5.3.1 - By Cybolt";
             Width = 960;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -172,7 +172,7 @@ namespace DfirTriageUi
             Controls.Add(txtLog);
             y += txtLog.Height + 4;
 
-            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.3.0 - By Cybolt, MIT License";
+            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.3.1 - By Cybolt, MIT License";
             lblFooter.Location = new Point(12, y);
             lblFooter.AutoSize = true;
             lblFooter.ForeColor = Color.Gray;
@@ -189,9 +189,14 @@ namespace DfirTriageUi
             lblWelcomeText.Location = new Point(12, 12);
             lblWelcomeText.Size = new Size(880, 200);
             lblWelcomeText.Text =
-                "Este wizard realiza la adquisicion DFIR en dos pasos:\n\n" +
+                "Este wizard realiza la adquisicion DFIR:\n\n" +
                 "  1. KapeTriage  -  copia evidencia de C: a E:\\DFIR-OUTPUT\\ (ZIP)\n" +
-                "  2. RAM Capture -  captura RAM con winpmem (opcional, archivo .raw)\n\n" +
+                "  2. RAM Capture -  captura RAM con winpmem (archivo .raw, opt-in)\n\n" +
+                "La captura de RAM es OPCIONAL (checkbox abajo, default OFF). Solo\n" +
+                "marcala si necesitas memoria volatil para el analisis (procesos\n" +
+                "en ejecucion, conexiones activas, claves DPAPI, etc). Si la\n" +
+                "omite, el ZIP de KapeTriage igual contiene evidencia persistente\n" +
+                "suficiente para el triage inicial.\n\n" +
                 "Requisitos:\n" +
                 "  - ISO montada como CD-ROM (auto-detectado)\n" +
                 "  - Disco de salida con label DFIR_OUTPUT (auto-detectado)\n" +
@@ -212,8 +217,8 @@ namespace DfirTriageUi
 
             chkRunRam.Location = new Point(12, 250);
             chkRunRam.AutoSize = true;
-            chkRunRam.Text = "Capturar RAM despues de KapeTriage (recomendado)";
-            chkRunRam.Checked = true;
+            chkRunRam.Text = "Capturar RAM despues de KapeTriage (opt-in, default OFF)";
+            chkRunRam.Checked = false;
             pnlWelcome.Controls.Add(chkRunRam);
 
             chkCmdWrapper.Location = new Point(12, 275);
@@ -351,7 +356,8 @@ namespace DfirTriageUi
             lblRamInfo.Text = "winpmem_mini_x64_rc2.exe (Velocidex WinPmem v4.0.rc1).\n" +
                               "Output: .raw en E:\\DFIR-OUTPUT\\RAM-<HOSTNAME>-<timestamp>.raw\n" +
                               "Tiempo estimado: 5-30 min dependiendo de la RAM fisica.\n" +
-                              "Si la VM tiene poca RAM (< 8 GB), podes saltear este paso.";
+                              "Este paso es opt-in (checkbox en la pantalla de Bienvenida, default OFF).\n" +
+                              "Podes volver a Bienvenida con < Back para activar/desactivar la captura.";
             pnlRam.Controls.Add(lblRamInfo);
 
             btnRunRam.Text = "▶ Ejecutar RAM Capture";
@@ -405,7 +411,7 @@ namespace DfirTriageUi
 
         private void OnLoad()
         {
-            Log("[+] CYBOLT_DFIR_TRIAGE v5.3.0 iniciado");
+            Log("[+] CYBOLT_DFIR_TRIAGE v5.3.1 iniciado");
             Log("[+] Hostname: " + Environment.MachineName + " | OS: " + Environment.OSVersion.VersionString);
             DetectEnv();
         }
