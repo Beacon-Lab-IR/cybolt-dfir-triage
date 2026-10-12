@@ -13,19 +13,17 @@ VERSION
 ARCHIVO
 -------
   Nombre  : CYBOLT-DFIR-TRIAGE-v5.3.1.iso
-  Tamano  : 588 957 696 bytes (561.67 MiB)
+  Tamano  : 589 238 272 bytes (562 MiB / 589 MB decimal)
   Formato : ISO9660 con extensiones Joliet (no booteable)
   Volumen : CYBOLT-DFIR-TRIAGE-v5.3.1
-  Generado en : macOS via hdiutil makehybrid (local) / Linux via genisoimage (CI)
-  NOTA: las hashes de abajo son del build local en macOS. La ISO publicada
-  via GitHub Actions (Linux) tiene hashes diferentes; ver el SHA-256 que
-  aparece junto al asset en el GitHub Release v5.3.1 para los definitivos.
+  Generado en : Linux (GitHub Actions, ubuntu-latest, .NET 8 SDK) via genisoimage
+  Build local macOS: 588 957 696 bytes (preview, no se publica)
 
 SHA-256
 -------
-  Local (macOS)         : 7ee6fd2b4ba19f862c0fb07f9785971e16de2c8179e9585ba1298b5443b3a337  CYBOLT-DFIR-TRIAGE-v5.3.1.iso
-  Release v5.3.0 (Linux): f4ae6a2dcbf6da79232425c8173c2fd1c004eb921c3000f8082cc0bd77d6f54f  (anterior)
-  Release v5.3.1 (Linux): (a confirmar tras la primera corrida del workflow)
+  Release v5.3.1 (Linux CI): f27ea5a36d13e2f5ae6997c2db9091318ffd03f3e01a6a9128290b3ef66ab192  CYBOLT-DFIR-TRIAGE-v5.3.1.iso
+  Local (macOS dev)         : 7ee6fd2b4ba19f862c0fb07f9785971e16de2c8179e9585ba1298b5443b3a337  (preview, no publicado)
+  Release v5.3.0 (Linux CI): f4ae6a2dcbf6da79232425c8173c2fd1c004eb921c3000f8082cc0bd77d6f54f  (anterior)
 
 HASHES DE ARCHIVOS CRITICOS (build local macOS)
 --------------------------------------------------
