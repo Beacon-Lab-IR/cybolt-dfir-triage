@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version a publicar (ej: 5.2.19)'
+        description: 'Version a publicar (ej: 5.3.0)'
         required: true
         type: string
 
@@ -81,15 +81,15 @@ jobs:
           cp -a /tmp/kape-src/kape/Documentation staging/
           ls -lh staging/kape.exe staging/Tools/kape.zip
 
-      - name: Compilar KAPE_TRIAGE_UI
+      - name: Compilar CYBOLT_DFIR_TRIAGE (wizard)
         run: |
-          dotnet build KapeUi/KapeUi.csproj -c Release
-          cp KapeUi/bin/Release/KAPE_TRIAGE_UI.exe staging/
+          dotnet build DfirTriageUi/DfirTriageUi.csproj -c Release
+          cp DfirTriageUi/bin/Release/CYBOLT_DFIR_TRIAGE.exe staging/
 
-      - name: Compilar RAM_CAPTURE_UI
+      - name: Compilar DFIR_UPLOADER_UI
         run: |
-          dotnet build RamCaptureUi/RamCaptureUi.csproj -c Release
-          cp RamCaptureUi/bin/Release/RAM_CAPTURE_UI.exe staging/
+          dotnet build DfirUploaderUi/DfirUploaderUi.csproj -c Release
+          cp DfirUploaderUi/bin/Release/DFIR_UPLOADER_UI.exe staging/
 
       - name: Descargar winpmem
         run: |
@@ -114,11 +114,10 @@ jobs:
             echo ""
             sha256sum \
               kape.exe \
-              KAPE_TRIAGE_UI.exe \
-              RAM_CAPTURE_UI.exe \
+              CYBOLT_DFIR_TRIAGE.exe \
+              DFIR_UPLOADER_UI.exe \
               KAPE_TRIAGE.cmd \
               CHECK_COMPAT.cmd \
-              KAPE_TRIAGE_UI.exe.config \
               Tools/kape.zip \
               Tools/Memory/winpmem_mini_x64_rc2.exe \
               Tools/Memory/CAPTURE_RAM.cmd \
@@ -137,8 +136,8 @@ jobs:
             staging/Tools/kape.zip \
             staging/Tools/Memory/winpmem_mini_x64_rc2.exe \
             staging/Tools/Memory/CAPTURE_RAM.cmd \
-            staging/KAPE_TRIAGE_UI.exe \
-            staging/RAM_CAPTURE_UI.exe
+            staging/CYBOLT_DFIR_TRIAGE.exe \
+            staging/DFIR_UPLOADER_UI.exe
           do
             if [ ! -e "$f" ]; then
               echo "FALTA: $f"
@@ -189,14 +188,16 @@ jobs:
         run: |
           ISO_PATH="dist/CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
           NOTES=$(cat <<EOF
-          ISO no-booteable para adquisicion DFIR sobre VMware/Proxmox.
+          ISO no-booteable CYBOLT-DFIR-TRIAGE para adquisicion DFIR sobre VMware/Proxmox.
+
+          Wizard unificado \`CYBOLT_DFIR_TRIAGE.exe\` (KAPE + RAM) y \`DFIR_UPLOADER_UI.exe\` para la VM de analisis.
 
           ## Instalacion
 
           1. Subir a datastore del hipervisor (vCenter Web UI o Proxmox).
           2. Adjuntar como CD-ROM en la VM objetivo (sin red).
-          3. Ejecutar \`RAM_CAPTURE_UI.exe\` y luego \`KAPE_TRIAGE_UI.exe\`.
-          4. Apagar VM, mover DFIR-OUTPUT.vmdk a la siguiente VM o VM de analisis.
+          3. Ejecutar \`CYBOLT_DFIR_TRIAGE.exe\` (wizard de 5 pasos).
+          4. Apagar VM, mover DFIR-OUTPUT.vmdk a la VM de analisis y subir con \`DFIR_UPLOADER_UI.exe\`.
 
           ## Verificacion de integridad
 
