@@ -145,10 +145,12 @@ pause
 REM --- Ejecutar KAPE con paths relativas donde corresponde ---
 REM     (kape.exe y targets-full.txt viajan con el .bat;
 REM      --targetdir, --modulesdir, --tdest, --zip siguen absolutas
-REM      porque apuntan a lugares fijos del stage)
+REM      porque apuntan a lugares fijos del stage;
+REM      KapeTriage y !SANS_Triage vienen en targets-full.txt — el !
+REM      de !SANS_Triage colisiona con delayed expansion de cmd si va
+REM      aca como --target, asi que lo dejamos en el archivo)
 kape.exe ^
   --tsource "%TSOURCE%" ^
-  --target KapeTriage ^
   --targets-list targets-full.txt ^
   --tdest "%OUT_DIR%" ^
   --targetdir "%TARGET_DIR%" ^

@@ -47,6 +47,25 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# COMPOUND TARGETS (base — corre estos siempre)
+# ------------------------------------------------------------------------------
+# KapeTriage   : Eric Zimmerman's compound (BasicCollection + EventLogs +
+#                RegistryHives + Prefetch + AmCache + PowerShell +
+#                ScheduledTasks + Services + AppCompat + LNKFilesAndJumpLists +
+#                EvidenceOfExecution + $MFT + $LogFile + $UsnJrnl)
+# !SANS_Triage : SANS FOR508-curated compound (Registry hives + Event Logs +
+#                Prefetch + SRUM + Scheduled Tasks + Services + WMI + BAM +
+#                AppCompat + LNK + JumpLists + UserAssist + Recycle Bin +
+#                network artifacts + $MFT + $LogFile + $UsnJrnl)
+#
+# Ambos se complementan: !SANS_Triage agrega SRUM, WMI, BAM, UserAssist y
+# Recycle Bin explicitos; KapeTriage agrega AmCache y PowerShell mas
+# agresivamente. KAPE deduplica por hash, no hay overhead real.
+# ------------------------------------------------------------------------------
+KapeTriage
+!SANS_Triage
+
+# ------------------------------------------------------------------------------
 # TIER 1 — Causa raiz directa del "retraso de software"
 # ------------------------------------------------------------------------------
 Defender
