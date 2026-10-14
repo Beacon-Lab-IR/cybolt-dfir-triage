@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -8,11 +10,21 @@ using System.Windows.Forms;
 namespace DfirTriageUi
 {
     /// <summary>
-    /// Orquesta la corrida de KAPE 1.3.0.2 con el target KapeTriage.
+    /// Orquesta la corrida de KAPE 1.3.0.2 con el target set configurable.
     /// Stage del kape.exe desde CD-ROM (D:) a disco de salida (E:) writable.
     /// Run de kape.exe con --tsource / --target / --tdest / --targetdir / --zip / --hv / --gui.
     /// Importante: close stdin antes de Process.Start para evitar que KAPE quede
     /// bloqueado en Console.ReadKey() al final (problema v5.2.10).
+    ///
+    /// Targets list: lee <bundleDir>/targets-full.txt (un target por linea, # = comentario).
+    /// Aplica filtro defensivo: si un target del .txt NO existe como .tkape en Targets/,
+    /// se skipea en vez de fallar. Esto permite actualizar el .txt independientemente
+    /// del kape.zip — si agregamos un target al .txt pero kape.zip no lo trae, lo skipea.
+    ///
+    /// KAPE 1.3.0.2 constraints:
+    ///   - NO acepta --targets-list (probado, falla "target is required").
+    ///   - Acepta multiples --target separados pero solo procesa el primero.
+    ///   - Soporta comma-separated en --target singular.
     /// </summary>
     internal class KapeRunner
     {
@@ -35,7 +47,98 @@ namespace DfirTriageUi
         }
 
         /// <summary>
-        /// Corre KapeTriage. Devuelve Result con path del ZIP + SHA-256.
+        /// Resultado de LoadAndFilterTargets: lista de targets que pasaron el filtro
+        /// (existen como .tkape en Targets/), los que se skipean, y raw text original
+        /// para mostrar al usuario en el panel de deteccion.
+        /// </summary>
+        public class TargetFilterResult
+        {
+            public List<string> Existing { get; set; } = new List<string>();
+            public List<string> Skipped { get; set; } = new List<string>();
+            public string RawText { get; set; }
+            public bool UsedFallback { get; set; }
+        }
+
+        /// <summary>
+        /// Carga targets-full.txt del bundle y filtra los que NO existan como .tkape.
+        /// Fallback si el .txt no existe: solo KapeTriage (modo safe).
+        /// </summary>
+        public TargetFilterResult LoadAndFilterTargets(string bundleDir)
+        {
+            var result = new TargetFilterResult();
+            string targetsFile = Path.Combine(bundleDir, "targets-full.txt");
+
+            // Fallback si no hay targets-full.txt
+            if (!File.Exists(targetsFile))
+            {
+                _log("[!] targets-full.txt NO encontrado en " + bundleDir + ", fallback KapeTriage");
+                result.Existing.Add("KapeTriage");
+                result.RawText = "(fallback) KapeTriage";
+                result.UsedFallback = true;
+                return result;
+            }
+
+            // Leer raw para mostrar al usuario
+            result.RawText = File.ReadAllText(targetsFile);
+
+            // Parsear
+            var requested = result.RawText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l) && !l.StartsWith("#"))
+                .ToList();
+
+            // Filtrar contra Targets/
+            var targetdir = Path.Combine(bundleDir, "Targets");
+            if (!Directory.Exists(targetdir))
+            {
+                _log("[!] Targets/ NO encontrado en " + bundleDir + ", fallback KapeTriage");
+                result.Existing.Add("KapeTriage");
+                result.Skipped.AddRange(requested.Where(t => t != "KapeTriage"));
+                result.UsedFallback = true;
+                return result;
+            }
+
+            // Cache de .tkape existentes: Set<string> lowercase para lookup rapido
+            var existingTkapes = new HashSet<string>(
+                Directory.EnumerateFiles(targetdir, "*.tkape", SearchOption.AllDirectories)
+                    .Select(p => Path.GetFileNameWithoutExtension(p).ToLowerInvariant()),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var t in requested)
+            {
+                if (existingTkapes.Contains(t))
+                {
+                    result.Existing.Add(t);
+                }
+                else
+                {
+                    result.Skipped.Add(t);
+                }
+            }
+
+            // Safety net: si por algun motivo la interseccion dio vacia, al menos correr KapeTriage
+            if (result.Existing.Count == 0)
+            {
+                _log("[!] Filtro resulto vacio, agregando KapeTriage como safety net");
+                if (existingTkapes.Contains("KapeTriage"))
+                {
+                    result.Existing.Add("KapeTriage");
+                }
+                else
+                {
+                    // Hay algo mal con el bundle, mejor fallar loud que silent
+                    throw new KapeException(
+                        "Bundle sin targets usables (KapeTriage tampoco existe en Targets/). " +
+                        "Reinstalar bundle.", -2);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Corre KapeTriage (o set de targets). Devuelve Result con path del ZIP + SHA-256.
         /// Lanza KapeException si falla.
         /// </summary>
         public async Task<Result> RunAsync(
@@ -63,8 +166,26 @@ namespace DfirTriageUi
             // 3. Build args
             // Removed --sync (per bug). Without --sync, KAPE doesn't try to download.
             // Removed --moduledir and --mdest (per bug - they pointed to read-only D:\Modules).
+            //
+            // Cargar targets-full.txt del bundle (CD-ROM) y aplicar filtro defensivo.
+            // KapeRunner.LoadAndFilterTargets chequea que cada target del .txt exista
+            // como .tkape en el bundle, y descarta los que no (skipped list).
+            var bundleDir = cdRomDrive + "\\";
+            var filterResult = LoadAndFilterTargets(bundleDir);
+
+            _log("[+] Targets a procesar (" + filterResult.Existing.Count + "):");
+            foreach (var t in filterResult.Existing)
+                _log("    OK  " + t);
+            if (filterResult.Skipped.Count > 0)
+            {
+                _log("[!] Targets skipped por no existir en Targets/ (" + filterResult.Skipped.Count + "):");
+                foreach (var t in filterResult.Skipped)
+                    _log("    SKIP " + t + ".tkape (no esta en el bundle)");
+            }
+
+            var targetsJoined = string.Join(",", filterResult.Existing);
             var args = "--tsource " + sourceDrive + "\\" +
-                       " --target KapeTriage" +
+                       " --target \"" + targetsJoined + "\"" +
                        " --tdest " + outBase + "\\" +
                        " --targetdir " + targetsDst +
                        " --zip " + outBase + "\\" + outZipName +

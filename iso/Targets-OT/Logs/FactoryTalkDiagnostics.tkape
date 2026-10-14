@@ -1,0 +1,53 @@
+Description: Rockwell FactoryTalk Diagnostics local logs (common to all FTSP products: View, Linx, Alarms&Events, Historian, Batch, Activation). Captures system activity, tag reads/writes, communication errors, login events, configuration changes routed through FactoryTalk Diagnostics. Bulletproof against locked files via AlwaysAddToQueue.
+Author: Raul B Netto (Cybolt DFIR)
+Version: 1.1
+Id: 546c910f-6aef-418b-8a26-647aa5c88273
+RecreateDirectories: true
+Targets:
+    -
+        Name: FactoryTalk Diagnostics Local Log (modern path)
+        Category: Logs
+        Path: C:\ProgramData\Rockwell\FTV\Logs\
+        Recursive: true
+        FileMask: "*"
+        AlwaysAddToQueue: true
+        Comment: "Default path for FactoryTalk Diagnostics local log on Windows Server 2012+ / Win10+. Contains .xml, .evtx-style messages per service that registered with FTSP. AlwaysAddToQueue: KAPE will raw-read these if locked by the live FTSP service."
+    -
+        Name: FactoryTalk Diagnostics Local Log (legacy path)
+        Category: Logs
+        Path: C:\Documents and Settings\All Users\Application Data\Rockwell\FTV\Logs\
+        Recursive: true
+        FileMask: "*"
+        AlwaysAddToQueue: true
+        Comment: "Legacy path on Windows Server 2008 / older hosts."
+    -
+        Name: FactoryTalk ProgramData (other Rockwell services)
+        Category: Logs
+        Path: C:\ProgramData\Rockwell\
+        Recursive: true
+        FileMask: "*.log"
+        AlwaysAddToQueue: true
+        Comment: "Catch-all for any Rockwell service that writes logs under C:\\ProgramData\\Rockwell\\ (Activation, Linx, FTSP, AssetCentre, etc)."
+    -
+        Name: FactoryTalk ProgramData (catch-all, any file)
+        Category: Logs
+        Path: C:\ProgramData\Rockwell\
+        Recursive: true
+        FileMask: "*"
+        Comment: "Second pass: any non-.log file under ProgramData\\Rockwell\\ that the prior filter may have missed (registry exports, snapshots, debug dumps). NOT AlwaysAddToQueue to avoid expensive raw reads on large unrelated files."
+
+# Documentation
+# FactoryTalk Diagnostics is the common logging subsystem shared by every FactoryTalk
+# product. Default retention 7 days. For DFIR, the most valuable entries are:
+#   - Tag writes with source (operator, screen, macro)
+#   - Login events to the FactoryTalk Directory
+#   - Service start/stop of HMI server, data server, alarm server
+#   - Communication errors between Linx and ControlLogix/CompactLogix
+#   - Security policy changes
+# Bulletproof notes:
+#   - AlwaysAddToQueue: true on .log files forces KAPE's secondary raw-read pass
+#     for any file that the OS reports as locked. This is the realistic case when
+#     the HMI server is still running during triage.
+#   - The trailing catch-all (without AlwaysAddToQueue) ensures we don't miss
+#     non-.log artifacts (snapshots, dumps) while avoiding raw-read cost.
+# Reference: CISA ICSA-24-256-23 (CVE-2024-45824), Rockwell SD1673.

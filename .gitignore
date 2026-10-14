@@ -13,3 +13,6 @@ obj/
 Thumbs.db
 *.swp
 *~
+
+# Build outputs (van a GitHub Releases, no al tree)
+dist/

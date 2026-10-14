@@ -1,147 +1,122 @@
-# ==============================================================================
-#  Cybolt DFIR — targets-full.txt
-#  Lista exhaustiva de KAPE targets para IR con sospecha de operador interno /
-#  retraso de software / actividad de usuario en ventana temporal acotada.
+# targets-full.txt - Auto-generado desde el bundle real
+# Count: 110 targets
+# Cubre: DFIR core (registries, event logs, browsers, browser PW,
+#         $MFT/$LogFile/usnJrnl, evidence of execution, programas,
+#         Web servers, Active Directory, RDP cache, network)
+# Excluido: Antivirus/*, Apps/*, Browsers/*, P2P/*, !Local/*, !Disabled/*,
+#            Compound/* no-core, NTFS specials ($Bitmap/$Boot/$SDS/$T)
 #
-#  Compatible con: KAPE 1.3.0.2 (kape.exe) y compound KapeTriage.
-#  Tamano bundle esperado: ~5-15 GB (Tier 1+2+3), ~10-25 GB (todos los tiers).
-#
-#  USO:
-#    1. Descargá este archivo del repo (o del ISO montado como CD-ROM).
-#    2. Stage a disco writable en la victima (NO correr kape.exe desde CD-ROM):
-#         xcopy /E /I /Y D:\KAPE C:\KAPE      (ajustar letra del ISO)
-#         copy /Y targets-full.txt C:\KAPE\
-#    3. Ejecutar (CMD como Administrador):
-#
-#         C:\KAPE\kape.exe ^
-#           --tsource C:\ ^
-#           --target KapeTriage ^
-#           --targets-list C:\KAPE\targets-full.txt ^
-#           --tdest E:\HOSTNAME-YYYYMMDD-HHMMSS\ ^
-#           --targetdir C:\KAPE\Targets ^
-#           --zip E:\HOSTNAME-YYYYMMDD-HHMMSS\HOSTNAME-KAPE-YYYYMMDD-HHMMSS ^
-#           --hv nc,vm ^
-#           --vss
-#
-#  ORDEN DE VOLATILIDAD (obligatorio):
-#    1. RAM primero: winpmem_mini_x64_rc2.exe E:\HOSTNAME-...\memory.raw
-#    2. Recién despues este KAPE.
-#
-#  FILTRO POR TIEMPO (T1..T2):
-#    KAPE no filtra por tiempo en adquisicion — adquiere todo.
-#    El filtrado se hace POST-adquisicion con EZTools:
-#      EvtxECmd    -d "YYYY-MM-DD..YYYY-MM-DD"
-#      MFTECmd     --date "YYYY-MM-DD..YYYY-MM-DD"
-#      PECmd       --date "..."
-#      JLECmd      -d "..."
-#      AmCacheParser  (filtro por KeyLastWriteTimestamp)
-#      RegistryExplorer  (vista Timeline / LastWriteTime)
-#
-#  NOTAS:
-#    - NO usar --sync (bug KAPE en proceso interpreta $Null como filename).
-#    - --vss requiere elevacion a Administrator.
-#    - KapeTriage ya cubre BasicCollection + EventLogs + RegistryHives +
-#      Prefetch + AmCache + PowerShell + ScheduledTasks + Services + AppCompat
-#      + LNKFilesAndJumpLists + EvidenceOfExecution + $MFT + $LogFile + $UsnJrnl.
-#      KAPE deduplica por hash, listarlos igual es red de seguridad.
-# ==============================================================================
+# KapeRunner.LoadAndFilterTargets() aplica filtro defensivo: si un
+# target del .txt no existe como .tkape en Targets/, se skipea en vez
+# de fallar. Esto permite actualizar el .txt independientemente del kape.zip.
 
-# ------------------------------------------------------------------------------
-# COMPOUND TARGETS (base — corre estos siempre)
-# ------------------------------------------------------------------------------
-# KapeTriage   : Eric Zimmerman's compound (BasicCollection + EventLogs +
-#                RegistryHives + Prefetch + AmCache + PowerShell +
-#                ScheduledTasks + Services + AppCompat + LNKFilesAndJumpLists +
-#                EvidenceOfExecution + $MFT + $LogFile + $UsnJrnl)
-# !SANS_Triage : SANS FOR508-curated compound (Registry hives + Event Logs +
-#                Prefetch + SRUM + Scheduled Tasks + Services + WMI + BAM +
-#                AppCompat + LNK + JumpLists + UserAssist + Recycle Bin +
-#                network artifacts + $MFT + $LogFile + $UsnJrnl)
-#
-# Ambos se complementan: !SANS_Triage agrega SRUM, WMI, BAM, UserAssist y
-# Recycle Bin explicitos; KapeTriage agrega AmCache y PowerShell mas
-# agresivamente. KAPE deduplica por hash, no hay overhead real.
-# ------------------------------------------------------------------------------
 KapeTriage
 !SANS_Triage
-
-# ------------------------------------------------------------------------------
-# TIER 1 — Causa raiz directa del "retraso de software"
-# ------------------------------------------------------------------------------
-Defender
-WER
-WERArchive
-CrashDumps
-MiniDumps
-ApplicationEvents
-Setupapi
-EventTraceLogs
-BAM
-SRUM
-PowerShellLogs
-PowerShellConsola
-Thumbnails
-RecentDocs
-PrintSpooler
-
-# ------------------------------------------------------------------------------
-# TIER 2 — Actividad del operador humano (timeline + ejecucion)
-# ------------------------------------------------------------------------------
-UserAssist
-RunKeys
-Autoruns
-LNKFiles
-JumpLists
-Recycle
-WordWheelQuery
-Search
-RoamingProfile
-WIFIPasswords
-NetworkDrives
-NetworkShares
-AccountDiscovery
-SAM
-ThumbDrive
-TimezoneIndicators
-
-# ------------------------------------------------------------------------------
-# TIER 3 — Red, lateral, persistencia, browser/email/cloud
-# ------------------------------------------------------------------------------
-USBDevices
-USBSTOR
-RDPBitmapCache
-RDPCache
-RDPFiles
-WBEM
-WindowsFirewall
-Drivers
-IISLogs
-WebBrowsers
-Chromium
-Firefox
-Chrome
-Edge
-InternetExplorer
-OutlookPST
-Email
-OneDrive
-CloudStorage
-Teams
-Skype
-
-# ------------------------------------------------------------------------------
-# TIER 4 — Forense profundo (suma 5-15 GB extra; dropear si E: chico)
-# ------------------------------------------------------------------------------
-RegistryHives
-NTUSER.DAT
-MFT
-$MFT
-$LogFile
-$UsnJrnl:$J
-NTFSINDX
-MemoryFiles
-HibernationFile
-Pagefile
-SwapFile
-EventLogs
+!BasicCollection
+CloudStorage_All
+CloudStorage_Metadata
+CombinedLogs
 EvidenceOfExecution
+Exchange
+FTPClients
+$LogFile
+$MFT
+ActiveDirectoryNTDS
+ActiveDirectorySysvol
+Amcache
+ApacheAccessLog
+AppCompatPCA
+ApplicationEvents
+AppXPackages
+BCD
+BITS
+CapabilityAccessManager
+CertUtil
+Debian
+Drivers
+EncapsulationLogging
+EventLogs
+EventLogs-RDP
+EventTraceLogs
+EventTranscriptDB
+ExchangeClientAccess
+ExchangeCve-2021-26855
+ExchangeSetupLog
+ExchangeTransport
+GroupPolicy
+HostsFile
+IconCacheDB
+IISConfiguration
+IISLogFiles
+JumpLists
+Kali
+LinuxOnWindowsProfileFiles
+LNKFilesAndJumpLists
+LogFiles
+ManageEngineLogs
+MemoryFiles
+MicrosoftOfficeBackstage
+MOF
+MongoDBLogs
+MSSQLErrorLog
+NETCLRUsageLogs
+NGINXLogs
+Notepad
+OfficeAutosave
+OfficeDiagnostics
+OfficeDocumentCache
+openSUSE
+PerfLogs
+PowerShell7Config
+PowerShellConsole
+PowerShellTranscripts
+Prefetch
+ProgramData
+PushNotification
+QuickAssist
+RDPCache
+RDPJumplist
+RDPLogs
+RecentFileCache
+RecentFolders
+RecycleBin_DataFiles
+RecycleBin_InfoFiles
+RegistryHivesMSIXApps
+RegistryHivesOther
+RegistryHivesSystem
+RegistryHivesUser
+RoamingProfile
+SCCMClientLogs
+ScheduledTasks
+SDB
+SignatureCatalog
+SnipAndSketch
+SnippingTool
+SRUM
+StartupFolders
+StartupInfo
+SUM
+SUSELinuxEnterpriseServer
+Syscache
+ThumbCache
+Ubuntu
+USBDevicesLogs
+UsersFolders
+VirtualDisks
+WBEM
+WER
+WindowsApp
+WindowsCopilotRecall
+WindowsFirewall
+WindowsHello
+WindowsIndexSearch
+WindowsNetwork
+WindowsNotificationsDB
+WindowsOSUpgradeArtifacts
+WindowsPowerDiagnostics
+WindowsServerDNSAndDHCP
+WindowsSubsystemforAndroid
+WindowsTelemetryDiagnosticsLegacy
+WindowsTimeline
+WindowsUpdate
+XPRestorePoints
