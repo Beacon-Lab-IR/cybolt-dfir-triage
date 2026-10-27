@@ -1,8 +1,12 @@
-name: Build ISO and publish release
+name: Build bundle and publish release
 
 # Tag v* o workflow_dispatch.
-# Reconstruye staging/: descarga kape.zip desde armeria, extrae kape.exe/Targets,
-# compila GUIs, descarga winpmem, overlay de iso/, genera ISO y publica Release.
+# Reconstruye staging/: baja kape.zip (verificado por SHA-256), lo descomprime
+# para dejar kape.exe/Targets/Modules/ en la raiz, baja winpmem, compila el
+# wizard CYBOLT_DFIR_TRIAGE.exe, arma el bundle y publica el Release.
+#
+# Este repo es self-contained (solo Triage). El ISO booteable que combina
+# Triage + Uploader vive en Beacon-Lab-IR/cybolt-dfir-iso.
 
 on:
   push:
@@ -11,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version a publicar (ej: 5.3.0)'
+        description: 'Version a publicar (ej: 0.2.0)'
         required: true
         type: string
 
@@ -19,14 +23,14 @@ permissions:
   contents: write
 
 env:
-  KAPE_ZIP_URL: https://github.com/Beacon-Lab-IR/armeria/raw/refs/heads/main/KAPE/kape.zip
+  KAPE_ZIP_URL: https://github.com/EricZimmerman/KAPE/releases/download/v1.3.0.2/kape.zip
   KAPE_ZIP_SHA256: 92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892
   WINPMEM_URL: https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe
   WINPMEM_SHA256: a4d516b6fcaf3b5b1d4ee709ce86f8eabf1d8028b3a83101479b7568b933d21b
 
 jobs:
-  build-iso:
-    name: Build ISO and publish
+  build-bundle:
+    name: Build bundle and publish
     runs-on: ubuntu-latest
 
     steps:
@@ -51,23 +55,23 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building v$VERSION"
 
-      - name: Preparar staging base (overlay Cybolt)
+      - name: Preparar staging
         run: |
           mkdir -p staging/Tools/Memory
-          cp -a iso/. staging/
-          # VERSION.txt: actualizar cabecera con la version del release
+          cp README.md VERSION.txt LICENSE targets-full.txt staging/
+          # VERSION.txt: cabecera con la version del release + fecha de build
           {
-            echo "CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }}.iso - Version ${{ steps.get_version.outputs.VERSION }}"
+            echo "CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }} - Version ${{ steps.get_version.outputs.VERSION }}"
             echo ""
             echo "Build       : $(date -u +%Y-%m-%d)"
-            tail -n +4 iso/VERSION.txt
+            tail -n +4 VERSION.txt
           } > staging/VERSION.txt
+          ls -la staging/
 
-      - name: Descargar kape.zip desde armeria
+      - name: Descargar kape.zip y extraer
         run: |
-          mkdir -p staging/Tools /tmp/kape-src
-          curl -fsSL -o staging/Tools/kape.zip "$KAPE_ZIP_URL"
-          actual=$(sha256sum staging/Tools/kape.zip | awk '{print $1}')
+          curl -fsSL -o /tmp/kape.zip "$KAPE_ZIP_URL"
+          actual=$(sha256sum /tmp/kape.zip | awk '{print $1}')
           if [ "$actual" != "$KAPE_ZIP_SHA256" ]; then
             echo "ERROR: kape.zip SHA-256 mismatch"
             echo "  expected: $KAPE_ZIP_SHA256"
@@ -75,21 +79,12 @@ jobs:
             exit 1
           fi
           echo "kape.zip OK: $actual"
-          unzip -q staging/Tools/kape.zip -d /tmp/kape-src
+          unzip -qo /tmp/kape.zip -d /tmp/kape-src
           cp /tmp/kape-src/kape/kape.exe staging/
           cp -a /tmp/kape-src/kape/Targets staging/
+          cp -a /tmp/kape-src/kape/Modules staging/
           cp -a /tmp/kape-src/kape/Documentation staging/
-          ls -lh staging/kape.exe staging/Tools/kape.zip
-
-      - name: Compilar CYBOLT_DFIR_TRIAGE (wizard)
-        run: |
-          dotnet build DfirTriageUi/DfirTriageUi.csproj -c Release
-          cp DfirTriageUi/bin/Release/CYBOLT_DFIR_TRIAGE.exe staging/
-
-      - name: Compilar DFIR_UPLOADER_UI
-        run: |
-          dotnet build DfirUploaderUi/DfirUploaderUi.csproj -c Release
-          cp DfirUploaderUi/bin/Release/DFIR_UPLOADER_UI.exe staging/
+          ls -la staging/kape.exe staging/Targets | head -5
 
       - name: Descargar winpmem
         run: |
@@ -103,41 +98,23 @@ jobs:
           fi
           echo "winpmem OK: $actual"
 
-      - name: Regenerar SHA256SUMS.txt
+      - name: Compilar CYBOLT_DFIR_TRIAGE
         run: |
-          cd staging
-          {
-            echo "SHA256SUMS - CYBOLT-DFIR-TRIAGE v${{ steps.get_version.outputs.VERSION }} (build $(date -u +%Y-%m-%d))"
-            echo "============================================="
-            echo ""
-            echo "Archivos criticos (verificar contra ISO despues de montar):"
-            echo ""
-            sha256sum \
-              kape.exe \
-              CYBOLT_DFIR_TRIAGE.exe \
-              DFIR_UPLOADER_UI.exe \
-              KAPE_TRIAGE.cmd \
-              CHECK_COMPAT.cmd \
-              Tools/kape.zip \
-              Tools/Memory/winpmem_mini_x64_rc2.exe \
-              Tools/Memory/CAPTURE_RAM.cmd \
-              LICENSE \
-              MANUAL_OPERATIVO.txt \
-              VERSION.txt
-          } > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          dotnet build DfirTriageUi/DfirTriageUi.csproj -c Release
+          cp DfirTriageUi/bin/Release/CYBOLT_DFIR_TRIAGE.exe staging/
+          sha256sum staging/CYBOLT_DFIR_TRIAGE.exe
 
       - name: Verificar staging completo
         run: |
           missing=0
           for f in \
-            staging/kape.exe \
-            staging/MANUAL_OPERATIVO.txt \
-            staging/Tools/kape.zip \
-            staging/Tools/Memory/winpmem_mini_x64_rc2.exe \
-            staging/Tools/Memory/CAPTURE_RAM.cmd \
             staging/CYBOLT_DFIR_TRIAGE.exe \
-            staging/DFIR_UPLOADER_UI.exe
+            staging/kape.exe \
+            staging/targets-full.txt \
+            staging/VERSION.txt \
+            staging/LICENSE \
+            staging/README.md \
+            staging/Tools/Memory/winpmem_mini_x64_rc2.exe
           do
             if [ ! -e "$f" ]; then
               echo "FALTA: $f"
@@ -148,70 +125,74 @@ jobs:
             echo "FALTA: staging/Targets"
             missing=1
           fi
+          if [ ! -d staging/Modules ]; then
+            echo "FALTA: staging/Modules"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
           echo "staging OK"
           du -sh staging
 
-      - name: Instalar genisoimage
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y genisoimage
-
-      - name: Generar ISO
+      - name: Empaquetar ZIP
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          ISO_NAME="CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
           mkdir -p dist
-          genisoimage -R -J -joliet-long \
-            -V "CYBOLT-DFIR-TRIAGE-v${VERSION}" \
-            -o "dist/$ISO_NAME" \
-            staging/
-          ls -lh "dist/$ISO_NAME"
+          ( cd staging && zip -qr "../dist/CyboltDFIR-Triage-v${VERSION}.zip" . -x "*.DS_Store" "*/.DS_Store" )
+          ls -lh "dist/CyboltDFIR-Triage-v${VERSION}.zip"
 
-      - name: Calcular SHA-256 del ISO
+      - name: Calcular SHA-256
         id: hash
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          ISO_NAME="CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
-          ISO_SHA=$(sha256sum "dist/$ISO_NAME" | awk '{print $1}')
-          echo "ISO_SHA=$ISO_SHA" >> "$GITHUB_OUTPUT"
-          echo "ISO size: $(stat -c%s "dist/$ISO_NAME") bytes"
-          echo "ISO SHA-256: $ISO_SHA"
+          ISO_SHA=$(sha256sum "dist/CyboltDFIR-Triage-v${VERSION}.zip" | awk '{print $1}')
+          echo "SHA=$ISO_SHA" >> "$GITHUB_OUTPUT"
+          echo "SHA-256: $ISO_SHA"
 
-      - name: Crear Release
+      - name: Crear o actualizar Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.VERSION }}
-          ISO_SHA: ${{ steps.hash.outputs.ISO_SHA }}
+          SHA: ${{ steps.hash.outputs.SHA }}
         run: |
-          ISO_PATH="dist/CYBOLT-DFIR-TRIAGE-v${VERSION}.iso"
+          ASSET="dist/CyboltDFIR-Triage-v${VERSION}.zip"
           NOTES=$(cat <<EOF
-          ISO no-booteable CYBOLT-DFIR-TRIAGE para adquisicion DFIR sobre VMware/Proxmox.
+          Bundle de adquisicion DFIR **CyboltDFIR Triage v${VERSION}**.
 
-          Wizard unificado \`CYBOLT_DFIR_TRIAGE.exe\` (KAPE + RAM) y \`DFIR_UPLOADER_UI.exe\` para la VM de analisis.
+          Wizard \`CYBOLT_DFIR_TRIAGE.exe\` (KAPE 1.3.0.2 + RAM capture opt-in),
+          parametrizable: se elige el disco de entrada y la carpeta de salida.
 
           ## Instalacion
 
-          1. Subir a datastore del hipervisor (vCenter Web UI o Proxmox).
-          2. Adjuntar como CD-ROM en la VM objetivo (sin red).
-          3. Ejecutar \`CYBOLT_DFIR_TRIAGE.exe\` (wizard de 5 pasos).
-          4. Apagar VM, mover DFIR-OUTPUT.vmdk a la VM de analisis y subir con \`DFIR_UPLOADER_UI.exe\`.
+          1. Descomprimir el ZIP en un medio writable (USB o disco).
+          2. En el equipo objetivo: ejecutar \`CYBOLT_DFIR_TRIAGE.exe\` como
+             Administrador (UAC forzado).
+          3. Paso 2 del wizard: elegir **disco de entrada** (default \`C:\`) y
+             **carpeta de salida** (boton *Browse*). Default autodetectado:
+             disco con label \`DFIR_OUTPUT\`, o primer disco removible.
+          4. Paso 3: KapeTriage con el set de targets de \`targets-full.txt\`,
+             con \`--vss\` (incluye Volume Shadow Copies).
+          5. Paso 4 (opcional, default OFF): captura de RAM con winpmem.
+          6. Apagar el equipo, retirar el medio con la evidencia y subirla con
+             el uploader standalone.
 
           ## Verificacion de integridad
 
-          SHA-256 del ISO:
+          SHA-256 del bundle:
 
           \`\`\`
-          ${ISO_SHA}
+          ${SHA}
           \`\`\`
 
-          Verificar con:
-
-          \`\`\`bash
-          shasum -a 256 CYBOLT-DFIR-TRIAGE-v${VERSION}.iso
+          \`\`\`sh
+          shasum -a 256 CyboltDFIR-Triage-v${VERSION}.zip
           \`\`\`
+
+          ## Variantes
+
+          - [cybolt-dfir-uploader](https://github.com/Beacon-Lab-IR/cybolt-dfir-uploader) — subidor standalone (S3/FTP/SFTP/SMB)
+          - [cybolt-dfir-iso](https://github.com/Beacon-Lab-IR/cybolt-dfir-iso) — ISO booteable que combina Triage + Uploader
 
           Codigo fuente: https://github.com/Beacon-Lab-IR/cybolt-dfir-triage
 
@@ -219,18 +200,15 @@ jobs:
           EOF
           )
           if gh release view "v${VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release v${VERSION} ya existe: subiendo asset con --clobber"
-            gh release upload "v${VERSION}" "${ISO_PATH}" \
-              --repo "${{ github.repository }}" --clobber
-            gh release edit "v${VERSION}" \
-              --repo "${{ github.repository }}" \
-              --notes "${NOTES}"
+            echo "Release v${VERSION} ya existe: --clobber"
+            gh release upload "v${VERSION}" "${ASSET}" --repo "${{ github.repository }}" --clobber
+            gh release edit "v${VERSION}" --repo "${{ github.repository }}" --notes "${NOTES}"
           else
             gh release create "v${VERSION}" \
               --repo "${{ github.repository }}" \
-              --title "CYBOLT-DFIR-TRIAGE v${VERSION}" \
+              --title "CyboltDFIR Triage v${VERSION}" \
               --notes "${NOTES}" \
-              "${ISO_PATH}"
+              "${ASSET}"
           fi
 
       - name: Tag en workflow_dispatch
@@ -249,6 +227,6 @@ jobs:
         if: success()
         run: |
           echo "## Release v${{ steps.get_version.outputs.VERSION }} publicada"
-          echo "ISO: dist/CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }}.iso"
-          echo "SHA-256: ${{ steps.hash.outputs.ISO_SHA }}"
+          echo "Bundle : dist/CyboltDFIR-Triage-v${{ steps.get_version.outputs.VERSION }}.zip"
+          echo "SHA-256: ${{ steps.hash.outputs.SHA }}"
           echo "URL: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }}"
