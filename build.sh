@@ -143,7 +143,55 @@ cp LICENSE staging/
 mkdir -p staging/docs
 [ -f docs/OPERATIVO.md ] && cp docs/OPERATIVO.md staging/docs/
 
-# 5) Empaquetar ZIP
+# 5) Verificar el bundle antes de empaquetar.
+echo ">>> Verificando staging..."
+missing=0
+for f in \
+    staging/CYBOLT_DFIR_TRIAGE.exe \
+    staging/kape.exe \
+    staging/gkape.exe \
+    staging/ChangeLog.txt \
+    staging/Get-KAPEUpdate.ps1 \
+    staging/gkape.settings \
+    staging/targets-full.txt \
+    staging/docs/OPERATIVO.md \
+    staging/VERSION.txt \
+    staging/LICENSE \
+    staging/README.md \
+    staging/Tools/Memory/winpmem_mini_x64_rc2.exe
+do
+    if [ ! -e "$f" ]; then
+        echo "FALTA: $f"
+        missing=1
+    fi
+done
+for d in staging/Targets staging/Modules staging/Documentation; do
+    if [ ! -d "$d" ]; then
+        echo "FALTA: $d"
+        missing=1
+    fi
+done
+# El bundle no puede llevar los artefactos upstream de KAPE (logs de la
+# maquina del autor + su kape.cli con paths locales).
+junk=$(find staging -maxdepth 1 \( -name '*_ConsoleLog.txt' -o -name '*kape.cli' \) | wc -l | tr -d ' ')
+if [ "$junk" -ne 0 ]; then
+    echo "FALTA: $junk artefactos upstream de KAPE en el bundle"
+    missing=1
+fi
+# Staging completo son ~748 MB. Si baja de 700 MB, algo grande no se copio.
+sz=$(du -sk staging | awk '{print $1}')
+echo "    staging: ${sz} KB"
+if [ "$sz" -lt 700000 ]; then
+    echo "FALTA: staging demasiado chico (${sz} KB < 700000 KB)"
+    missing=1
+fi
+if [ "$missing" -ne 0 ]; then
+    echo "ERROR: staging incompleto, no se empaqueta"
+    exit 1
+fi
+echo "    staging OK"
+
+# 6) Empaquetar ZIP
 echo ">>> Empaquetando ZIP..."
 mkdir -p dist
 TRIAGE_ZIP="$(pwd)/dist/CyboltDFIR-Triage-v$VERSION.zip"

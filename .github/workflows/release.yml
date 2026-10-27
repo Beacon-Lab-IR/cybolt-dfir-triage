@@ -84,15 +84,18 @@ jobs:
           fi
           echo "kape.zip OK: $actual"
           unzip -qo /tmp/kape.zip -d /tmp/kape-src
-          cp /tmp/kape-src/kape/kape.exe staging/
-          cp -a /tmp/kape-src/kape/Targets staging/
-          cp -a /tmp/kape-src/kape/Modules staging/
-          cp -a /tmp/kape-src/kape/Documentation staging/
+          # Copiar TODO el contenido de kape/ (no solo 4 items): el bundle
+          # tiene que llevar el arbol completo de la distribucion de KAPE
+          # (kape.exe, gkape.exe, Targets/, Modules/, Documentation/,
+          # ChangeLog.txt, Get-KAPEUpdate.ps1, gkape.settings). Enumerar
+          # solo algunos dejaba afuera gkape.exe (63 MB) y el operador
+          # perdia el GUI de KAPE.
+          cp -a /tmp/kape-src/kape/. staging/
           # El kape.zip oficial trae logs de la maquina del autor de KAPE y
           # su kape.cli con paths locales. No son producto: en un bundle
           # DFIR parecen evidencia.
           rm -f staging/*_ConsoleLog.txt staging/*kape.cli
-          ls -la staging/kape.exe staging/Targets | head -5
+          ls -la staging/ | head -15
 
       - name: Descargar winpmem
         run: |
@@ -118,6 +121,10 @@ jobs:
           for f in \
             staging/CYBOLT_DFIR_TRIAGE.exe \
             staging/kape.exe \
+            staging/gkape.exe \
+            staging/ChangeLog.txt \
+            staging/Get-KAPEUpdate.ps1 \
+            staging/gkape.settings \
             staging/targets-full.txt \
             staging/docs/OPERATIVO.md \
             staging/VERSION.txt \
@@ -130,19 +137,33 @@ jobs:
               missing=1
             fi
           done
-          if [ ! -d staging/Targets ]; then
-            echo "FALTA: staging/Targets"
+          for d in staging/Targets staging/Modules staging/Documentation; do
+            if [ ! -d "$d" ]; then
+              echo "FALTA: $d"
+              missing=1
+            fi
+          done
+          # El bundle NO puede llevar los artefactos upstream de KAPE.
+          junk=$(find staging -maxdepth 1 \( -name '*_ConsoleLog.txt' -o -name '*kape.cli' \) | wc -l)
+          if [ "$junk" -ne 0 ]; then
+            echo "FALTA: $junk artefactos upstream de KAPE en el bundle"
+            find staging -maxdepth 1 \( -name '*_ConsoleLog.txt' -o -name '*kape.cli' \)
             missing=1
           fi
-          if [ ! -d staging/Modules ]; then
-            echo "FALTA: staging/Modules"
+          # Contraste de tamano: staging completo son ~748 MB (Modules 661 +
+          # gkape.exe 60 + kape.exe 7 + Targets 1.7). Si baja de 700 MB,
+          # algo grande dejo de copiarse (ya paso con gkape.exe: se perdian
+          # 60 MB y el bundle salia 62 MB mas chico sin avisar).
+          sz=$(du -sk staging | awk '{print $1}')
+          echo "    staging: ${sz} KB"
+          if [ "$sz" -lt 700000 ]; then
+            echo "FALTA: staging demasiado chico (${sz} KB < 700000 KB). Revisar que se copie todo kape.zip"
             missing=1
           fi
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
           echo "staging OK"
-          du -sh staging
 
       - name: Empaquetar ZIP
         run: |
