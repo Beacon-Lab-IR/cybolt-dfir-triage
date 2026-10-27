@@ -15,8 +15,8 @@ namespace DfirTriageUi
     /// Wizard consolidado: KapeTriage + RAM Capture en una sola GUI.
     /// Pasos:
     ///   1. Welcome
-    ///   2. Deteccion (CD-ROM, output drive, RAM, hostname)
-    ///   3. KapeTriage (run KAPE con stage desde CD-ROM a disco de salida)
+    ///   2. Deteccion (bundle, disco entrada, carpeta salida, RAM)
+    ///   3. KapeTriage (run KAPE con stage desde el bundle a carpeta de salida)
     ///   4. RAM Capture (run winpmem)
     ///   5. Resumen final con SHA-256 + paths
     /// </summary>
@@ -43,7 +43,9 @@ namespace DfirTriageUi
         private CancellationTokenSource _cts;
 
         // Detection results
-        private string _cdRomDrive = "D:";
+        // Carpeta del bundle (kape.exe + Targets/ + Tools/). Preferimos la
+        // carpeta del .exe; el lookup por raiz de disco/ISO queda de fallback.
+        private string _bundleRoot = null;
         private string _outputFolder = null;   // ruta completa de la carpeta de salida (ej "E:\DFIR-OUTPUT")
         private bool _outputFolderManual = false;
         private string _sourceDrive = "C:";
@@ -61,7 +63,7 @@ namespace DfirTriageUi
 
         public DfirTriageMain()
         {
-            Text = "CYBOLT DFIR Triage Wizard v5.5.0 - By Cybolt";
+            Text = "CYBOLT DFIR Triage Wizard v5.5.1 - By Cybolt";
             Width = 960;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -174,7 +176,7 @@ namespace DfirTriageUi
             Controls.Add(txtLog);
             y += txtLog.Height + 4;
 
-            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.5.0 - By Cybolt, MIT License";
+            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.5.1 - By Cybolt, MIT License";
             lblFooter.Location = new Point(12, y);
             lblFooter.AutoSize = true;
             lblFooter.ForeColor = Color.Gray;
@@ -203,7 +205,7 @@ namespace DfirTriageUi
                 "En el paso 2 (Deteccion) elegis el disco de ENTRADA (default C:)\n" +
                 "y la CARPETA de SALIDA (autodetectada, pero Browse la cambia).\n\n" +
                 "Requisitos:\n" +
-                "  - Bundle montado como CD-ROM o USB (auto-detectado)\n" +
+                "  - Bundle descomprimido (CYBOLT_DFIR_TRIAGE.exe junto a kape.exe)\n" +
                 "  - Carpeta de salida en un medio writable (disco o USB)\n" +
                 "  - Privilegios de Administrador (UAC forzado)\n" +
                 "  - Sin red durante la captura (la subida va aparte con DFIR_UPLOADER_UI)\n\n" +
@@ -321,7 +323,7 @@ namespace DfirTriageUi
 
             lblDetCdRom.Location = new Point(12, y);
             lblDetCdRom.AutoSize = true;
-            lblDetCdRom.Text = "CD-ROM (ISO): detectando...";
+            lblDetCdRom.Text = "Bundle (kape.exe): detectando...";
             pnlDetect.Controls.Add(lblDetCdRom);
             y += 26;
 
@@ -470,7 +472,7 @@ namespace DfirTriageUi
 
         private void OnLoad()
         {
-            Log("[+] CYBOLT_DFIR_TRIAGE v5.5.0 iniciado");
+            Log("[+] CYBOLT_DFIR_TRIAGE v5.5.1 iniciado");
             Log("[+] Hostname: " + Environment.MachineName + " | OS: " + Environment.OSVersion.VersionString);
             DetectEnv();
         }
@@ -517,10 +519,12 @@ namespace DfirTriageUi
         {
             Log("[+] Detectando entorno...");
 
-            // CD-ROM
-            _cdRomDrive = FindCdRomWithKape();
-            lblDetCdRom.Text = "CD-ROM (ISO): " + (_cdRomDrive ?? "(no encontrado)") +
-                                (_cdRomDrive != null && File.Exists(_cdRomDrive + "\\kape.exe") ? " [kape.exe OK]" : " [kape.exe NO]");
+            // Bundle: carpeta del .exe (ZIP descomprimido) o fallback a raiz de disco
+            _bundleRoot = FindBundleRoot();
+            if (!string.IsNullOrEmpty(_bundleRoot) && File.Exists(Path.Combine(_bundleRoot, "kape.exe")))
+                lblDetCdRom.Text = "Bundle (kape.exe): " + _bundleRoot + "  [OK]";
+            else
+                lblDetCdRom.Text = "Bundle (kape.exe): (no encontrado)  [NO]";
 
             // Discos de entrada disponibles (preserva la seleccion actual del operador)
             PopulateSourceDrives();
@@ -546,7 +550,7 @@ namespace DfirTriageUi
             UpdatePanelInfos();
             UpdateNextEnabled();
 
-            var canProceed = !string.IsNullOrEmpty(_cdRomDrive)
+            var canProceed = !string.IsNullOrEmpty(_bundleRoot)
                           && !string.IsNullOrEmpty(_outputFolder)
                           && !string.IsNullOrEmpty(_sourceDrive);
             Log("[+] Deteccion completa: " + (canProceed ? "OK para proceder" : "FALTAN elementos"));
@@ -570,10 +574,11 @@ namespace DfirTriageUi
                 catch { volLabel = ""; ready = false; }
 
                 var root = d.Name.TrimEnd('\\');
+                // Solo letra + label del volumen (si hay). No mostramos DriveType
+                // ("Fixed"/"Removable"): confunde al operador y no aporta.
                 var desc = root + "\\";
                 if (!string.IsNullOrEmpty(volLabel)) desc += "  [" + volLabel + "]";
-                desc += "  " + d.DriveType;
-                if (!ready) desc += " (no listo)";
+                if (!ready) desc += "  (no listo)";
                 cmbSourceDrive.Items.Add(new DriveChoice(root, desc));
             }
 
@@ -722,7 +727,7 @@ namespace DfirTriageUi
         {
             if (_currentStep == 1)
             {
-                var inputsOk = !string.IsNullOrEmpty(_cdRomDrive)
+                var inputsOk = !string.IsNullOrEmpty(_bundleRoot)
                             && !string.IsNullOrEmpty(_outputFolder)
                             && !string.IsNullOrEmpty(_sourceDrive);
                 btnNext.Enabled = inputsOk;
@@ -733,19 +738,26 @@ namespace DfirTriageUi
             }
         }
 
-        private string FindCdRomWithKape()
+        /// <summary>
+        /// Localiza el bundle (carpeta con kape.exe + Targets/).
+        /// 1) Carpeta del .exe (caso normal: ZIP descomprimido en USB/Downloads)
+        /// 2) Raiz de cualquier disco con kape.exe (ISO/USB montado en raiz)
+        /// </summary>
+        private string FindBundleRoot()
         {
-            foreach (var d in DriveInfo.GetDrives())
+            try
             {
-                if (d.DriveType != DriveType.CDRom) continue;
-                var kapePath = Path.Combine(d.Name, "kape.exe");
-                if (File.Exists(kapePath)) return d.Name.TrimEnd('\\');
+                var exeDir = Path.GetDirectoryName(Application.ExecutablePath);
+                if (!string.IsNullOrEmpty(exeDir) && File.Exists(Path.Combine(exeDir, "kape.exe")))
+                    return exeDir.TrimEnd('\\');
             }
-            // Fallback: any drive with kape.exe
+            catch { }
+
             foreach (var d in DriveInfo.GetDrives())
             {
                 try
                 {
+                    if (!d.IsReady) continue;
                     var kapePath = Path.Combine(d.Name, "kape.exe");
                     if (File.Exists(kapePath)) return d.Name.TrimEnd('\\');
                 }
@@ -845,10 +857,10 @@ namespace DfirTriageUi
 
         private async void BtnRunKape_Click(object sender, EventArgs e)
         {
-            if (_cdRomDrive == null || string.IsNullOrEmpty(_outputFolder) || string.IsNullOrEmpty(_sourceDrive))
+            if (_bundleRoot == null || string.IsNullOrEmpty(_outputFolder) || string.IsNullOrEmpty(_sourceDrive))
             {
-                MessageBox.Show("CD-ROM no detectado, o falta elegir disco de entrada o carpeta de salida.\n" +
-                                "Volve a 'Deteccion' y completalos.",
+                MessageBox.Show("No se encontro el bundle (kape.exe junto al .exe), o falta elegir\n" +
+                                "disco de entrada o carpeta de salida. Volve a 'Deteccion'.",
                     "CYBOLT_DFIR_TRIAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -863,7 +875,7 @@ namespace DfirTriageUi
             var runner = new KapeRunner(Log, _useCmdWrapper);
             try
             {
-                _kapeResult = await runner.RunAsync(_cdRomDrive, _outputFolder, _sourceDrive, _cts.Token);
+                _kapeResult = await runner.RunAsync(_bundleRoot, _outputFolder, _sourceDrive, _cts.Token);
                 lblKapeResult.Text = "ZIP: " + _kapeResult.ZipPath + "\n" +
                                     "Tamano: " + HashUtil.FormatBytes(_kapeResult.ZipSize) + "\n" +
                                     "SHA-256: " + _kapeResult.Sha256 + "\n" +
@@ -898,10 +910,10 @@ namespace DfirTriageUi
 
         private async void BtnRunRam_Click(object sender, EventArgs e)
         {
-            if (_cdRomDrive == null || string.IsNullOrEmpty(_outputFolder))
+            if (_bundleRoot == null || string.IsNullOrEmpty(_outputFolder))
             {
-                MessageBox.Show("CD-ROM no detectado o falta elegir la carpeta de salida.\n" +
-                                "Volve a 'Deteccion' y completalos.",
+                MessageBox.Show("No se encontro el bundle (kape.exe junto al .exe) o falta\n" +
+                                "elegir la carpeta de salida. Volve a 'Deteccion'.",
                     "CYBOLT_DFIR_TRIAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -916,7 +928,7 @@ namespace DfirTriageUi
             var runner = new RamRunner(Log, _useCmdWrapper);
             try
             {
-                _ramResult = await runner.RunAsync(_cdRomDrive, _outputFolder, _cts.Token);
+                _ramResult = await runner.RunAsync(_bundleRoot, _outputFolder, _cts.Token);
                 lblRamResult.Text = "RAW: " + _ramResult.RawPath + "\n" +
                                     "Tamano: " + HashUtil.FormatBytes(_ramResult.RawSize) + "\n" +
                                     "SHA-256: " + _ramResult.Sha256 + "\n" +
@@ -960,7 +972,7 @@ namespace DfirTriageUi
             sb.AppendLine("Fecha:    " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             sb.AppendLine("OS:       " + Environment.OSVersion.VersionString);
             sb.AppendLine();
-            sb.AppendLine("CD-ROM:   " + _cdRomDrive);
+            sb.AppendLine("Bundle:   " + _bundleRoot);
             sb.AppendLine("Entrada:  " + _sourceDrive + "\\");
             sb.AppendLine("Salida:   " + _outputFolder);
             sb.AppendLine("RAM:      " + HashUtil.FormatBytes(_totalRamBytes));

@@ -8,7 +8,7 @@
   </defs>
   <rect x="0.5" y="0.5" width="959" height="719" rx="2" fill="#f0f0f0" stroke="#707070"/>
   <rect x="1" y="1" width="958" height="30" fill="url(#titlebar)" stroke="#d0d0d0"/>
-  <text x="12" y="20" font-size="12" fill="#000">CYBOLT DFIR Triage Wizard v5.5.0 - By Cybolt</text>
+  <text x="12" y="20" font-size="12" fill="#000">CYBOLT DFIR Triage Wizard v5.5.1 - By Cybolt</text>
   <g fill="#000" opacity="0.55">
     <rect x="880" y="10" width="10" height="2"/>
     <rect x="905" y="8" width="10" height="10" fill="none" stroke="#000" stroke-width="1.2"/>
@@ -20,7 +20,7 @@
   <text x="36" y="118" font-size="13" font-weight="700" fill="#111">Deteccion del entorno - parametros de entrada y salida</text>
   <text x="36" y="158" font-size="12" fill="#111">Disco de entrada (input):</text>
   <rect x="194" y="140" width="420" height="24" fill="#fff" stroke="#7a7a7a"/>
-  <text x="202" y="157" font-size="12" fill="#111">C:\  [Windows]  Fixed</text>
+  <text x="202" y="157" font-size="12" fill="#111">C:\  [Windows]</text>
   <path d="M598 148 l6 6 l6-6" fill="none" stroke="#333" stroke-width="1.5"/>
   <text x="36" y="192" font-size="12" fill="#111">Carpeta de salida (output):</text>
   <rect x="194" y="174" width="570" height="24" fill="#fff" stroke="#7a7a7a"/>
@@ -28,7 +28,7 @@
   <rect x="772" y="174" width="100" height="24" fill="#e1e1e1" stroke="#adadad"/>
   <text x="786" y="191" font-size="11" fill="#111">Browse...</text>
   <text x="194" y="216" font-size="11" fill="#808080">(seleccionada manualmente)</text>
-  <text x="36" y="248" font-size="12" fill="#111">CD-ROM / medio del bundle: D:\</text>
+  <text x="36" y="248" font-size="12" fill="#111">Bundle (kape.exe): OK  (carpeta del .exe)</text>
   <text x="36" y="274" font-size="12" fill="#111">RAM fisica: 16.0 GB</text>
   <text x="36" y="300" font-size="12" fill="#111">Espacio libre en carpeta de salida: 128.4 GB</text>
   <rect x="36" y="318" width="120" height="26" fill="#e1e1e1" stroke="#adadad"/>
@@ -45,12 +45,12 @@
     <text x="372" y="497" fill="#111">Close</text>
   </g>
   <rect x="24" y="518" width="912" height="140" fill="#000" stroke="#333"/>
-  <text x="36" y="538" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] CYBOLT_DFIR_TRIAGE v5.5.0 iniciado</text>
+  <text x="36" y="538" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] CYBOLT_DFIR_TRIAGE v5.5.1 iniciado</text>
   <text x="36" y="556" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Disco de entrada: C:\</text>
   <text x="36" y="574" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Carpeta de salida: E:\DFIR-OUTPUT</text>
-  <text x="36" y="592" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Medio del bundle: D:\</text>
+  <text x="36" y="592" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Bundle: carpeta del .exe</text>
   <text x="36" y="610" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] RAM fisica: 16.0 GB</text>
   <text x="36" y="628" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Espacio libre: 128.4 GB</text>
   <text x="36" y="646" font-family="Consolas, monospace" font-size="11" fill="#90ee90">[+] Listo para continuar</text>
-  <text x="24" y="688" font-size="11" fill="#808080">CYBOLT_DFIR_TRIAGE.exe v5.5.0 - By Cybolt, MIT License</text>
+  <text x="24" y="688" font-size="11" fill="#808080">CYBOLT_DFIR_TRIAGE.exe v5.5.1 - By Cybolt, MIT License</text>
 </svg>

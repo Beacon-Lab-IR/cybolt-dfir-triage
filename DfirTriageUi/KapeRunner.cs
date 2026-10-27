@@ -11,7 +11,7 @@ namespace DfirTriageUi
 {
     /// <summary>
     /// Orquesta la corrida de KAPE 1.3.0.2 con el target set configurable.
-    /// Stage del kape.exe desde CD-ROM (D:) a la carpeta de salida elegida (writable).
+    /// Stage del kape.exe desde el bundle (carpeta del .exe) a la carpeta de salida.
     /// Run de kape.exe con --tsource / --target / --tdest / --targetdir / --zip / --hv / --gui / --vss.
     /// Importante: close stdin antes de Process.Start para evitar que KAPE quede
     /// bloqueado en Console.ReadKey() al final (problema v5.2.10).
@@ -142,7 +142,7 @@ namespace DfirTriageUi
         /// Lanza KapeException si falla.
         /// </summary>
         public async Task<Result> RunAsync(
-            string cdRomDrive,     // ej "D:"
+            string bundleRoot,     // carpeta del bundle (junto al .exe, o raiz de medio)
             string outputFolder,   // ej "E:\DFIR-OUTPUT" (carpeta completa elegida por el operador)
             string sourceDrive,    // ej "C:"
             CancellationToken ct)
@@ -165,23 +165,23 @@ namespace DfirTriageUi
                 throw new KapeException("No se pudo crear la carpeta de salida '" + outputFolder + "': " + ex.Message, -1);
             }
 
-            // 1. Stage kape.exe from CD-ROM to output folder (CD-ROM is read-only)
+            // 1. Stage kape.exe from bundle to output folder (bundle puede ser read-only)
             var stageKape = Path.Combine(stageDir, "kape.exe");
-            await StageFileAsync(cdRomDrive + "\\kape.exe", stageKape, ct);
+            await StageFileAsync(Path.Combine(bundleRoot, "kape.exe"), stageKape, ct);
 
             // 2. Stage Targets/ tree
-            var targetsSrc = cdRomDrive + "\\Targets";
+            var targetsSrc = Path.Combine(bundleRoot, "Targets");
             var targetsDst = Path.Combine(stageDir, "Targets");
             await StageDirectoryAsync(targetsSrc, targetsDst, ct);
 
             // 3. Build args
             // Removed --sync (per bug). Without --sync, KAPE doesn't try to download.
-            // Removed --moduledir and --mdest (per bug - they pointed to read-only D:\Modules).
+            // Removed --moduledir and --mdest (per bug - apuntaban a medio read-only).
             //
-            // Cargar targets-full.txt del bundle (CD-ROM) y aplicar filtro defensivo.
+            // Cargar targets-full.txt del bundle y aplicar filtro defensivo.
             // KapeRunner.LoadAndFilterTargets chequea que cada target del .txt exista
             // como .tkape en el bundle, y descarta los que no (skipped list).
-            var bundleDir = cdRomDrive + "\\";
+            var bundleDir = bundleRoot.TrimEnd('\\') + "\\";
             var filterResult = LoadAndFilterTargets(bundleDir);
 
             _log("[+] Targets a procesar (" + filterResult.Existing.Count + "):");

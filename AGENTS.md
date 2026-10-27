@@ -96,8 +96,8 @@ del árbol de KAPE, y borra los artefactos upstream que trae el zip oficial.
 
 1. Compila `DfirTriageUi` → `staging/CYBOLT_DFIR_TRIAGE.exe`
 2. Descomprime `kape.zip` a `staging/` (deja `kape.exe`, `Targets/`,
-   `Modules/`, `Documentation/` en la raíz — el wizard lee `cdRomDrive\Targets`)
-   y borra `*_ConsoleLog.txt` / `*kape.cli` (basura del zip de Kroll)
+   `Modules/`, `Documentation/` en la raíz — el wizard lee `bundleRoot\Targets`)
+ y borra `*_ConsoleLog.txt` / `*kape.cli` (basura del zip de Kroll)
 3. Verifica `winpmem_mini_x64_rc2.exe` por SHA-256
 4. Copia `VERSION.txt`, `LICENSE`, `README.md`, `targets-full.txt`
 5. `zip -qr` → `dist/CyboltDFIR-Triage-v<VER>.zip`
@@ -129,7 +129,7 @@ Crear el release a mano con `gh release create` **no** dispara el workflow
 | Paso | Panel | Contenido |
 |---|---|---|
 | 1 | Welcome | checkboxes: **capturar RAM** (opt-in, default OFF), **cmd wrapper** (default OFF) |
-| 2 | Detect | **disco de entrada** (ComboBox), **carpeta de salida** (TextBox + Browse), CD-ROM, RAM, espacio libre |
+| 2 | Detect | **disco de entrada** (ComboBox), **carpeta de salida** (TextBox + Browse), bundle (`kape.exe` junto al .exe), RAM, espacio libre |
 | 3 | Kape | botón ▶ Ejecutar → `KapeRunner.RunAsync` |
 | 4 | RAM | botón ▶ Ejecutar → `RamRunner.RunAsync` (se salta si el checkbox está OFF) |
 | 5 | Summary | paths + SHA-256 de cada output + próximos pasos |
@@ -138,16 +138,17 @@ Crear el release a mano con `gh release create` **no** dispara el workflow
 
 ```
 Detección (paso 2)
+  ├─ _bundleRoot   : carpeta del .exe (kape.exe al lado) → fallback raiz de disco
   ├─ _sourceDrive  : "C:"        → ComboBox, default C:
   └─ _outputFolder : ruta completa → autodetectada, siempre editable
         ↓
-KapeRunner.RunAsync(cdRomDrive, outputFolder, sourceDrive, ct)
+KapeRunner.RunAsync(bundleRoot, outputFolder, sourceDrive, ct)
   ├─ outBase   = outputFolder\<HOST>-<timestamp>
   ├─ stageDir  = outputFolder\_kape_stage
   ├─ --tdest   = outBase          (KAPE escribe el ZIP DENTRO)
   └─ --zip     = outBase\<HOST>-KAPE-<timestamp>   (basename, KAPE agrega .zip)
 
-RamRunner.RunAsync(cdRomDrive, outputFolder, ct)
+RamRunner.RunAsync(bundleRoot, outputFolder, ct)
   └─ rawPath = outputFolder\RAM-<HOST>-<timestamp>.raw
 ```
 

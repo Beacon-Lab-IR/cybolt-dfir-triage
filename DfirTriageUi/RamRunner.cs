@@ -9,7 +9,7 @@ namespace DfirTriageUi
 {
     /// <summary>
     /// Orquesta la captura de RAM con winpmem_mini_x64_rc2.exe (Velocidex WinPmem v4.0.rc1).
-    /// Auto-detecta: letra del CD-ROM (donde esta Tools\Memory\winpmem), RAM fisica total.
+    /// Auto-detecta: Tools\Memory\winpmem dentro del bundle, RAM fisica total.
     /// La salida va a la carpeta elegida por el operador.
     /// Criterio de exito: archivo .raw existe y tamano >= 95% de la RAM fisica total
     /// (v5.2.18 fix). Aplica SHA-256 streaming al final.
@@ -36,14 +36,14 @@ namespace DfirTriageUi
         }
 
         public async Task<Result> RunAsync(
-            string cdRomDrive,    // ej "D:"
+            string bundleRoot,    // carpeta del bundle (junto al .exe, o raiz de medio)
             string outputFolder,  // ej "E:\DFIR-OUTPUT" (carpeta completa elegida por el operador)
             CancellationToken ct)
         {
             var sw = Stopwatch.StartNew();
 
             // 1. Detect winpmem
-            var winpmemPath = Path.Combine(cdRomDrive, "Tools", "Memory", "winpmem_mini_x64_rc2.exe");
+            var winpmemPath = Path.Combine(bundleRoot, "Tools", "Memory", "winpmem_mini_x64_rc2.exe");
             if (!File.Exists(winpmemPath))
             {
                 throw new RamException("winpmem no encontrado en " + winpmemPath, -1);

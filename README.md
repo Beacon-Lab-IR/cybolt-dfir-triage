@@ -28,7 +28,7 @@ writable y se ejecuta en el equipo objetivo.
 
 ```bash
 ./build.sh              # usa la version de VERSION.txt
-./build.sh 0.3.0        # fuerza la version de release
+./build.sh 0.3.1        # fuerza la version de release
 
 # Output: dist/CyboltDFIR-Triage-v<VERSION>.zip
 ```
@@ -70,7 +70,7 @@ El operador descomprime el bundle en un medio writable (USB o disco) y ejecuta
 
 El `Browse…` es un `FolderBrowserDialog` nativo: deja navegar, crear carpeta
 nueva (`ShowNewFolderButton`) y escribir la ruta a mano. `Re-detectar` respeta
-la carpeta elegida a mano y solo reevalúa CD-ROM, discos de entrada y RAM.
+la carpeta elegida a mano y solo reevalúa bundle, discos de entrada y RAM.
 
 ## Releases
 

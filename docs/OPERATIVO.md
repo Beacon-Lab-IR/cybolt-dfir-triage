@@ -175,8 +175,9 @@ carpeta nueva) o escribila a mano en el TextBox. **Importante:** la carpeta
 tiene que estar en un medio **distinto** al del sistema, o la evidencia se
 mezcla con el disco en adquisición.
 
-El resto del panel muestra CD-ROM detectado, RAM física y espacio libre de la
-carpeta de salida. **Next** queda bloqueado si falta algo.
+El resto del panel muestra la carpeta del bundle (`kape.exe` junto al `.exe`),
+RAM física y espacio libre de la carpeta de salida. **Next** queda bloqueado
+si falta el bundle, el disco de entrada o la carpeta de salida.
 
 ### Paso 3 — KapeTriage
 
@@ -265,7 +266,7 @@ registro de la cadena de custodia.
 | "Access is denied: [X:]" al arrancar | `kape.exe` en medio read-only | El wizard stagea solo. Si lo corriste a mano, copiá `kape.exe` + `Targets/` a `C:\KAPE\` |
 | Exit code != 0 en winpmem | Comportamiento conocido de WinPmem | **No es error** si el `.raw` mide ≥ 95% de la RAM. El wizard ya lo trata como éxito |
 | Spam "Unable to update Console Title" | Runtime .NET sin consola válida | Marcá el checkbox *cmd.exe wrapper* en el paso 1 |
-| Next bloqueado en el paso 2 | Falta CD-ROM, disco de entrada o carpeta de salida | Completalos. El CD-ROM se detecta por `kape.exe` en la raíz del medio |
+| Next bloqueado en el paso 2 | Falta bundle (`kape.exe`), disco de entrada o carpeta de salida | El bundle se detecta en la carpeta del `.exe`. Re-descomprimí el ZIP completo |
 | La carpeta de salida no es la deseada | Default apunta al primer USB o a `C:\DFIR-OUTPUT` | Usá **Browse…** o escribí la ruta a mano |
 | El ZIP tarda mucho | Disco grande o `--vss` procesando shadow copies | Normal. 10–40 min. No lo mates |
 | Espacio insuficiente | La RAM no entra en el medio de salida | Usá un medio más grande o desactivá la captura de RAM |
