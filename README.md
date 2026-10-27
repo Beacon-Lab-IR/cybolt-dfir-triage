@@ -25,12 +25,31 @@ opt-in + uploader integrado, en un solo bundle.
 El operador conecta el bundle a una VM/host Windows (USB, CD-ROM) y
 ejecuta `CYBOLT_DFIR_TRIAGE.exe`. El wizard:
 
-1. Detecta el entorno (letras de unidad, RAM, etc)
-2. Stagea kape.exe y Targets/ a disco writable
-3. Corre KapeTriage con --vss para incluir Shadow Copies
-4. Captura RAM (opt-in, default OFF)
-5. Calcula SHA-256 del ZIP resultante
-6. Muestra el resultado y opciones de upload
+1. Bienvenida — opciones (captura RAM opt-in, cmd wrapper)
+2. **Parametros de entrada/salida** — elegís el **disco de entrada**
+   (ComboBox con los discos fijos y removibles; default `C:`) y la
+   **carpeta de salida** (TextBox + `Browse…`). La carpeta se autodetecta
+   (label `DFIR_OUTPUT` → USB removible → `C:\DFIR-OUTPUT`) pero siempre
+   podés cambiarla. Todo lo que produce el wizard (staging, ZIP, `.raw`,
+   resumen) queda en esa carpeta.
+3. KapeTriage — stagea `kape.exe` + `Targets/` a la carpeta de salida y
+   corre KAPE con `--vss` (incluye Shadow Copies)
+4. RAM Capture (opt-in, default OFF)
+5. Resumen final con SHA-256 de cada output
+
+### Parámetros
+
+| Parámetro | Dónde | Default | Notas |
+|---|---|---|---|
+| Disco de entrada | Paso 2, ComboBox | `C:` | Discos fijos + removibles. `--tsource` de KAPE |
+| Carpeta de salida | Paso 2, TextBox + Browse | autodetectada | `FolderBrowserDialog`, acepta escribir a mano |
+| Captura RAM | Paso 1, checkbox | OFF | Opt-in |
+| cmd wrapper | Paso 1, checkbox | OFF | Para servers con spam de Console Title |
+
+El `Browse…` es un `FolderBrowserDialog` nativo: deja navegar, crear
+carpeta nueva (`ShowNewFolderButton`) y escribir la ruta a mano. El
+`Re-detectar` del paso 2 respeta la carpeta elegida a mano y solo
+reevalúa CD-ROM, discos de entrada y RAM.
 
 ## Releases
 

@@ -11,8 +11,8 @@ namespace DfirTriageUi
 {
     /// <summary>
     /// Orquesta la corrida de KAPE 1.3.0.2 con el target set configurable.
-    /// Stage del kape.exe desde CD-ROM (D:) a disco de salida (E:) writable.
-    /// Run de kape.exe con --tsource / --target / --tdest / --targetdir / --zip / --hv / --gui.
+    /// Stage del kape.exe desde CD-ROM (D:) a la carpeta de salida elegida (writable).
+    /// Run de kape.exe con --tsource / --target / --tdest / --targetdir / --zip / --hv / --gui / --vss.
     /// Importante: close stdin antes de Process.Start para evitar que KAPE quede
     /// bloqueado en Console.ReadKey() al final (problema v5.2.10).
     ///
@@ -143,18 +143,29 @@ namespace DfirTriageUi
         /// </summary>
         public async Task<Result> RunAsync(
             string cdRomDrive,     // ej "D:"
-            string outputDrive,    // ej "E:" (DFIR_OUTPUT)
+            string outputFolder,   // ej "E:\DFIR-OUTPUT" (carpeta completa elegida por el operador)
             string sourceDrive,    // ej "C:"
             CancellationToken ct)
         {
             var sw = Stopwatch.StartNew();
             var host = Environment.MachineName;
             var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            var outBase = outputDrive + "\\" + host + "-" + stamp;
+            var outBase = Path.Combine(outputFolder, host + "-" + stamp);
             var outZipName = host + "-KAPE-" + stamp;
-            var stageDir = outputDrive + "\\_kape_stage";
+            var stageDir = Path.Combine(outputFolder, "_kape_stage");
 
-            // 1. Stage kape.exe from CD-ROM to output drive (CD-ROM is read-only)
+            // La carpeta de salida tiene que existir y ser escribible.
+            try
+            {
+                if (!Directory.Exists(outputFolder))
+                    Directory.CreateDirectory(outputFolder);
+            }
+            catch (Exception ex)
+            {
+                throw new KapeException("No se pudo crear la carpeta de salida '" + outputFolder + "': " + ex.Message, -1);
+            }
+
+            // 1. Stage kape.exe from CD-ROM to output folder (CD-ROM is read-only)
             var stageKape = Path.Combine(stageDir, "kape.exe");
             await StageFileAsync(cdRomDrive + "\\kape.exe", stageKape, ct);
 
@@ -184,13 +195,24 @@ namespace DfirTriageUi
             }
 
             var targetsJoined = string.Join(",", filterResult.Existing);
-            var args = "--tsource " + sourceDrive + "\\" +
-                       " --target \"" + targetsJoined + "\"" +
-                       " --tdest " + outBase + "\\" +
-                       " --targetdir " + targetsDst +
-                       " --zip " + outBase + "\\" + outZipName +
+
+            // Todas las rutas van entrecomilladas: la carpeta de salida la elige
+            // el operador y puede contener espacios ("E:\Mi Evidencia"), lo que
+            // romperia el parseo de args de KAPE si no se cita.
+            // Sin barra final dentro de las comillas: en Windows el parser de
+            // linea de comandos trata la barra antes del cierre como escape
+            // de la comilla ("C:\" -> C:"). KAPE acepta los paths sin barra final.
+            var args = "--tsource " + Quote(sourceDrive) +
+                       " --target " + Quote(targetsJoined) +
+                       " --tdest " + Quote(outBase) +
+                       " --targetdir " + Quote(targetsDst) +
+                       " --zip " + Quote(outBase + "\\" + outZipName) +
                        " --hv nc,vm" +
-                       " --gui";
+                       " --gui" +
+                       // --vss: procesa los Volume Shadow Copies del volumen fuente.
+                       // Sin esto se pierden event logs locked (Application.evtx, Defender,
+                       // Security.evtx bloqueado) y el estado historico del disco.
+                       " --vss";
             _log("[+] KAPE args: kape.exe " + args);
 
             // 4. Launch
@@ -273,8 +295,18 @@ namespace DfirTriageUi
             };
         }
 
-        private async Task StageFileAsync(string source, string dest, CancellationToken ct)
+        /// <summary>
+        /// Entrecomilla un valor para la linea de comandos de KAPE.
+        /// Escapa las comillas dobles internas duplicandolas (regla de escape
+        /// de CommandLineToArgvW / NDesk.Options).
+        /// </summary>
+        private static string Quote(string value)
         {
+            if (value == null) return "\"\"";
+            return "\"" + value.Replace("\"", "\\\"") + "\"";
+        }
+
+        private async Task StageFileAsync(string source, string dest, CancellationToken ct)        {
             if (File.Exists(dest))
             {
                 var srcInfo = new FileInfo(source);
@@ -347,15 +379,42 @@ namespace DfirTriageUi
 
         private string FindLatestZip(string outBase, string outZipName)
         {
-            // KAPE writes: {outBase}\{timestamp}_E__{outZipName}.zip
-            var dir = Path.GetDirectoryName(outBase);
-            if (!Directory.Exists(dir)) return null;
-            var prefix = Path.GetFileName(outBase);
-            var files = Directory.GetFiles(dir, "*" + outZipName + "*.zip");
-            if (files.Length == 0) return null;
-            // Pick the most recent
-            Array.Sort(files);
-            return files[files.Length - 1];
+            // KAPE 1.3.0.2 escribe el ZIP DENTRO de --tdest, con prefijo de timestamp:
+            //   {tdest}\{timestamp}_E__{basename}.zip
+            // Validado en el drill 2026-09-23 con KAPE_TRIAGE_UI v5.2.10, que
+            // buscaba por patron dentro de tdest.
+            // OJO: buscar en Path.GetDirectoryName(outBase) (la carpeta PADRE)
+            // es un bug: el ZIP no esta ahi, esta dentro de outBase.
+            var candidates = new List<string>();
+
+            // Principal: --tdest (outBase)
+            try
+            {
+                if (Directory.Exists(outBase))
+                    candidates.AddRange(Directory.GetFiles(outBase, "*" + outZipName + "*.zip"));
+            }
+            catch (Exception ex)
+            {
+                _log("[!] Busqueda de ZIP en tdest fallo: " + ex.Message);
+            }
+
+            // Fallback: carpeta padre, por si otra version de KAPE escribe ahi
+            try
+            {
+                var parent = Path.GetDirectoryName(outBase);
+                if (!string.IsNullOrEmpty(parent) && Directory.Exists(parent))
+                    candidates.AddRange(Directory.GetFiles(parent, "*" + outZipName + "*.zip"));
+            }
+            catch (Exception ex)
+            {
+                _log("[!] Busqueda de ZIP en la carpeta padre fallo: " + ex.Message);
+            }
+
+            if (candidates.Count == 0) return null;
+
+            // Mas reciente por LastWriteTime (KAPE escribe uno, pero el operador
+            // puede re-correr la adquisicion el mismo dia).
+            return candidates.OrderByDescending(f => File.GetLastWriteTime(f)).First();
         }
     }
 

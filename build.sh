@@ -76,8 +76,19 @@ if [ "$ACTUAL_SHA" != "$KAPE_SHA_EXPECTED" ]; then
 fi
 echo "    OK: kape.zip ($(human_size $(stat -f%z "$KAPE_ZIP")))"
 
-# Copiar el kape.zip al staging para que vaya en el bundle
-cp "$KAPE_ZIP" staging/
+# Descomprimir kape.zip al staging/ para que el bundle tenga los
+# binarios (kape.exe, Targets/, Modules/, Documentation/) en raíz
+# en lugar de tener el zip completo de 553 MB adentro.
+echo "    Descomprimiendo kape.zip a staging/..."
+unzip -qo "$KAPE_ZIP" -d staging/
+# kape.zip tiene todo bajo kape/; mover a raíz
+if [ -d staging/kape ]; then
+    shopt -s dotglob nullglob 2>/dev/null || true
+    for f in staging/kape/*; do
+        mv "$f" staging/
+    done
+    rmdir staging/kape
+fi
 
 # 3) Verificar/descargar winpmem
 echo ">>> [3/3] Verificando winpmem..."

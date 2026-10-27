@@ -1,10 +1,34 @@
-CYBOLT-DFIR-TRIAGE-v5.3.1.iso - Version 5.3.1
+CYBOLT-DFIR-TRIAGE-v5.4.0.iso - Version 5.4.0
 
-Build       : 2026-10-12
+Build       : 2026-10-26
 Plataforma  : Windows (.NET Framework 4.5.2+)
 KAPE        : 1.3.0.2 (Kroll Cyber)
 
 Cambios en esta version:
+  - (v5.4.0) UX: wizard parametrizable. El paso 2 (Deteccion) ahora deja
+                  elegir los dos parametros de la adquisicion:
+                    * Disco de ENTRADA: ComboBox con todos los discos fijos y
+                      removibles del equipo (muestra label del volumen + tipo).
+                      Default: C:. Antes estaba hardcodeado a "C:".
+                    * Carpeta de SALIDA: TextBox editable + boton "Browse..."
+                      (FolderBrowserDialog, con opcion de crear carpeta nueva).
+                      Antes solo se aceptaba un disco con label DFIR_OUTPUT y
+                      la evidencia caia en la RAIZ de ese disco.
+                  Default de la carpeta de salida (sempre sobreescribible):
+                    1) <disco con label DFIR_OUTPUT>\DFIR-OUTPUT
+                    2) <primer disco removible>\DFIR-OUTPUT
+                    3) C:\DFIR-OUTPUT
+                  La carpeta elegida se usa para el staging (_kape_stage), el
+                  ZIP de KapeTriage, el .raw de RAM y el resumen final.
+                  "Re-detectar" ya NO pisa la carpeta que el operador eligio
+                  a mano; solo vuelve a autodetectar el CD-ROM, los discos de
+                  entrada y la RAM.
+  - (v5.4.0) FIX: se restaura el flag --vss en el comando de KAPE. Se habia
+                  perdido al extraer KapeRunner del KapeUi legacy (v5.3.0).
+                  Sin --vss se pierden los event logs bloqueados
+                  (Application.evtx, Defender, Security.evtx locked) y el
+                  estado historico del disco. El README ya lo documentaba
+                  desde antes, pero el codigo no lo ejecutaba.
   - (v5.3.1) UX: la captura de RAM ahora es OPCIONAL en el wizard. El
                   checkbox "Capturar RAM despues de KapeTriage" en la
                   pantalla de Bienvenida arranca DESMARCADO (default OFF).

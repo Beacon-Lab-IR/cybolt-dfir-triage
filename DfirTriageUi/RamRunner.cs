@@ -9,8 +9,8 @@ namespace DfirTriageUi
 {
     /// <summary>
     /// Orquesta la captura de RAM con winpmem_mini_x64_rc2.exe (Velocidex WinPmem v4.0.rc1).
-    /// Auto-detecta: letra del CD-ROM (donde esta Tools\Memory\winpmem), particion de salida
-    /// (label DFIR_OUTPUT), RAM fisica total.
+    /// Auto-detecta: letra del CD-ROM (donde esta Tools\Memory\winpmem), RAM fisica total.
+    /// La salida va a la carpeta elegida por el operador.
     /// Criterio de exito: archivo .raw existe y tamano >= 95% de la RAM fisica total
     /// (v5.2.18 fix). Aplica SHA-256 streaming al final.
     /// </summary>
@@ -37,7 +37,7 @@ namespace DfirTriageUi
 
         public async Task<Result> RunAsync(
             string cdRomDrive,    // ej "D:"
-            string outputDrive,   // ej "E:"
+            string outputFolder,  // ej "E:\DFIR-OUTPUT" (carpeta completa elegida por el operador)
             CancellationToken ct)
         {
             var sw = Stopwatch.StartNew();
@@ -56,13 +56,31 @@ namespace DfirTriageUi
             // 3. Build output path
             var host = Environment.MachineName;
             var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            var rawPath = Path.Combine(outputDrive, "RAM-" + host + "-" + stamp + ".raw");
+            try
+            {
+                if (!Directory.Exists(outputFolder))
+                    Directory.CreateDirectory(outputFolder);
+            }
+            catch (Exception ex)
+            {
+                throw new RamException("No se pudo crear la carpeta de salida '" + outputFolder + "': " + ex.Message, -1);
+            }
+            var rawPath = Path.Combine(outputFolder, "RAM-" + host + "-" + stamp + ".raw");
             _log("[+] Output: " + rawPath);
 
-            // 4. Check free space (RAM + 10% overhead)
-            var free = new DriveInfo(outputDrive).AvailableFreeSpace;
+            // 4. Check free space (RAM + 10% overhead) en el volumen de la carpeta de salida
+            long free = 0;
+            try
+            {
+                var root = Path.GetPathRoot(Path.GetFullPath(outputFolder));
+                free = new DriveInfo(root).AvailableFreeSpace;
+            }
+            catch (Exception ex)
+            {
+                _log("[!] No se pudo leer el espacio libre: " + ex.Message);
+            }
             var needed = (long)(totalRam * 1.1);
-            if (free < needed)
+            if (free > 0 && free < needed)
             {
                 _log("[!] Espacio libre: " + HashUtil.FormatBytes(free) + " < necesario: " + HashUtil.FormatBytes(needed));
                 _log("[!] Continuando igual (puede fallar si no hay espacio).");

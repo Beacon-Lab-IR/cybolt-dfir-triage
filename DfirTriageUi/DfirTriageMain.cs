@@ -44,10 +44,12 @@ namespace DfirTriageUi
 
         // Detection results
         private string _cdRomDrive = "D:";
-        private string _outputDrive = "E:";
+        private string _outputFolder = null;   // ruta completa de la carpeta de salida (ej "E:\DFIR-OUTPUT")
+        private bool _outputFolderManual = false;
         private string _sourceDrive = "C:";
         private long _totalRamBytes;
         private long _freeSpaceBytes;
+        private bool _suppressTextChanged = false;
 
         // Kape result
         private KapeRunner.Result _kapeResult;
@@ -59,7 +61,7 @@ namespace DfirTriageUi
 
         public DfirTriageMain()
         {
-            Text = "CYBOLT DFIR Triage Wizard v5.3.1 - By Cybolt";
+            Text = "CYBOLT DFIR Triage Wizard v5.4.0 - By Cybolt";
             Width = 960;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -172,7 +174,7 @@ namespace DfirTriageUi
             Controls.Add(txtLog);
             y += txtLog.Height + 4;
 
-            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.3.1 - By Cybolt, MIT License";
+            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.4.0 - By Cybolt, MIT License";
             lblFooter.Location = new Point(12, y);
             lblFooter.AutoSize = true;
             lblFooter.ForeColor = Color.Gray;
@@ -190,20 +192,23 @@ namespace DfirTriageUi
             lblWelcomeText.Size = new Size(880, 200);
             lblWelcomeText.Text =
                 "Este wizard realiza la adquisicion DFIR:\n\n" +
-                "  1. KapeTriage  -  copia evidencia de C: a E:\\DFIR-OUTPUT\\ (ZIP)\n" +
+                "  1. KapeTriage  -  copia evidencia del disco de entrada a la\n" +
+                "                    carpeta de salida elegida (ZIP)\n" +
                 "  2. RAM Capture -  captura RAM con winpmem (archivo .raw, opt-in)\n\n" +
                 "La captura de RAM es OPCIONAL (checkbox abajo, default OFF). Solo\n" +
                 "marcala si necesitas memoria volatil para el analisis (procesos\n" +
                 "en ejecucion, conexiones activas, claves DPAPI, etc). Si la\n" +
                 "omite, el ZIP de KapeTriage igual contiene evidencia persistente\n" +
                 "suficiente para el triage inicial.\n\n" +
+                "En el paso 2 (Deteccion) elegis el disco de ENTRADA (default C:)\n" +
+                "y la CARPETA de SALIDA (autodetectada, pero Browse la cambia).\n\n" +
                 "Requisitos:\n" +
-                "  - ISO montada como CD-ROM (auto-detectado)\n" +
-                "  - Disco de salida con label DFIR_OUTPUT (auto-detectado)\n" +
+                "  - Bundle montado como CD-ROM o USB (auto-detectado)\n" +
+                "  - Carpeta de salida en un medio writable (disco o USB)\n" +
                 "  - Privilegios de Administrador (UAC forzado)\n" +
                 "  - Sin red durante la captura (la subida va aparte con DFIR_UPLOADER_UI)\n\n" +
                 "Si alguno de los pasos falla o se omite, los outputs parciales quedan\n" +
-                "en E:\\DFIR-OUTPUT\\ y pueden entregarse igual al analista.\n";
+                "en la carpeta de salida y pueden entregarse igual al analista.\n";
             pnlWelcome.Controls.Add(lblWelcomeText);
 
             var lblOpts = new Label
@@ -230,17 +235,31 @@ namespace DfirTriageUi
 
         // === Detect panel ===
         private Label lblDetCdRom = new Label();
-        private Label lblDetOutput = new Label();
-        private Label lblDetSource = new Label();
         private Label lblDetRam = new Label();
         private Label lblDetFree = new Label();
+        private Label lblDetOutputInfo = new Label();
+        private ComboBox cmbSourceDrive = new ComboBox();
+        private TextBox txtOutputFolder = new TextBox();
+        private Button btnBrowseOutput = new Button();
         private Button btnDetRefresh = new Button();
+
+        /// <summary>
+        /// Item del ComboBox de discos de entrada: guarda la raiz real ("C:")
+        /// y muestra una descripcion legible (label del volumen + tipo).
+        /// </summary>
+        private class DriveChoice
+        {
+            public string Root;
+            public string Description;
+            public DriveChoice(string root, string description) { Root = root; Description = description; }
+            public override string ToString() { return Description; }
+        }
 
         private void BuildDetectPanel()
         {
             var lblTitle = new Label
             {
-                Text = "Deteccion del entorno",
+                Text = "Deteccion del entorno - parametros de entrada y salida",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 Location = new Point(12, 8),
                 AutoSize = true,
@@ -248,22 +267,62 @@ namespace DfirTriageUi
             pnlDetect.Controls.Add(lblTitle);
 
             int y = 40;
+
+            // --- Entrada: disco/volumen aquisitions ---
+            var lblSrc = new Label
+            {
+                Text = "Disco de entrada (input):",
+                Location = new Point(12, y + 3),
+                AutoSize = true,
+            };
+            pnlDetect.Controls.Add(lblSrc);
+
+            cmbSourceDrive.Location = new Point(170, y);
+            cmbSourceDrive.Width = 420;
+            cmbSourceDrive.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbSourceDrive.SelectedIndexChanged += (s, e) =>
+            {
+                var sel = cmbSourceDrive.SelectedItem as DriveChoice;
+                if (sel == null) return;
+                _sourceDrive = sel.Root;
+                UpdatePanelInfos();
+                UpdateNextEnabled();
+            };
+            pnlDetect.Controls.Add(cmbSourceDrive);
+            y += 30;
+
+            // --- Salida: carpeta donde se escribe la evidencia ---
+            var lblOut = new Label
+            {
+                Text = "Carpeta de salida (output):",
+                Location = new Point(12, y + 3),
+                AutoSize = true,
+            };
+            pnlDetect.Controls.Add(lblOut);
+
+            txtOutputFolder.Location = new Point(170, y);
+            txtOutputFolder.Width = 570;
+            txtOutputFolder.TextChanged += TxtOutputFolder_TextChanged;
+            pnlDetect.Controls.Add(txtOutputFolder);
+
+            btnBrowseOutput.Text = "… Browse…";
+            btnBrowseOutput.Location = new Point(748, y);
+            btnBrowseOutput.Width = 100;
+            btnBrowseOutput.Click += BtnBrowseOutput_Click;
+            pnlDetect.Controls.Add(btnBrowseOutput);
+            y += 30;
+
+            lblDetOutputInfo.Location = new Point(170, y);
+            lblDetOutputInfo.AutoSize = true;
+            lblDetOutputInfo.ForeColor = Color.Gray;
+            lblDetOutputInfo.Text = "";
+            pnlDetect.Controls.Add(lblDetOutputInfo);
+            y += 26;
+
             lblDetCdRom.Location = new Point(12, y);
             lblDetCdRom.AutoSize = true;
             lblDetCdRom.Text = "CD-ROM (ISO): detectando...";
             pnlDetect.Controls.Add(lblDetCdRom);
-            y += 26;
-
-            lblDetOutput.Location = new Point(12, y);
-            lblDetOutput.AutoSize = true;
-            lblDetOutput.Text = "Disco de salida (DFIR_OUTPUT): detectando...";
-            pnlDetect.Controls.Add(lblDetOutput);
-            y += 26;
-
-            lblDetSource.Location = new Point(12, y);
-            lblDetSource.AutoSize = true;
-            lblDetSource.Text = "Disco fuente (C:): detectando...";
-            pnlDetect.Controls.Add(lblDetSource);
             y += 26;
 
             lblDetRam.Location = new Point(12, y);
@@ -274,7 +333,7 @@ namespace DfirTriageUi
 
             lblDetFree.Location = new Point(12, y);
             lblDetFree.AutoSize = true;
-            lblDetFree.Text = "Espacio libre en disco de salida: detectando...";
+            lblDetFree.Text = "Espacio libre en carpeta de salida: detectando...";
             pnlDetect.Controls.Add(lblDetFree);
             y += 30;
 
@@ -305,9 +364,9 @@ namespace DfirTriageUi
 
             lblKapeInfo.Location = new Point(12, 36);
             lblKapeInfo.Size = new Size(880, 60);
-            lblKapeInfo.Text = "KapeTriage ejecuta KAPE 1.3.0.2 con el target predefinido.\n" +
-                              "Stage: copia kape.exe + Targets/ desde el CD-ROM al disco de salida (E:\\).\n" +
-                              "Output: ZIP en E:\\DFIR-OUTPUT\\<HOSTNAME>-KAPE-<timestamp>.zip";
+            lblKapeInfo.Text = "KAPE 1.3.0.2 con el set de targets del bundle (targets-full.txt).\n" +
+                              "Stage: copia kape.exe + Targets/ a la carpeta de salida (disco writable).\n" +
+                              "Entrada: (definiendo en Deteccion)   ->   Salida: (definiendo en Deteccion)";
             pnlKape.Controls.Add(lblKapeInfo);
 
             btnRunKape.Text = "▶ Ejecutar KapeTriage";
@@ -354,7 +413,7 @@ namespace DfirTriageUi
             lblRamInfo.Location = new Point(12, 36);
             lblRamInfo.Size = new Size(880, 70);
             lblRamInfo.Text = "winpmem_mini_x64_rc2.exe (Velocidex WinPmem v4.0.rc1).\n" +
-                              "Output: .raw en E:\\DFIR-OUTPUT\\RAM-<HOSTNAME>-<timestamp>.raw\n" +
+                              "Salida: (definiendo en Deteccion)\\RAM-<HOSTNAME>-<timestamp>.raw\n" +
                               "Tiempo estimado: 5-30 min dependiendo de la RAM fisica.\n" +
                               "Este paso es opt-in (checkbox en la pantalla de Bienvenida, default OFF).\n" +
                               "Podes volver a Bienvenida con < Back para activar/desactivar la captura.";
@@ -411,7 +470,7 @@ namespace DfirTriageUi
 
         private void OnLoad()
         {
-            Log("[+] CYBOLT_DFIR_TRIAGE v5.3.1 iniciado");
+            Log("[+] CYBOLT_DFIR_TRIAGE v5.4.0 iniciado");
             Log("[+] Hostname: " + Environment.MachineName + " | OS: " + Environment.OSVersion.VersionString);
             DetectEnv();
         }
@@ -463,50 +522,219 @@ namespace DfirTriageUi
             lblDetCdRom.Text = "CD-ROM (ISO): " + (_cdRomDrive ?? "(no encontrado)") +
                                 (_cdRomDrive != null && File.Exists(_cdRomDrive + "\\kape.exe") ? " [kape.exe OK]" : " [kape.exe NO]");
 
-            // Output drive (label DFIR_OUTPUT)
-            _outputDrive = FindDriveByLabel("DFIR_OUTPUT");
-            lblDetOutput.Text = "Disco de salida (DFIR_OUTPUT): " + (_outputDrive ?? "(no encontrado)");
+            // Discos de entrada disponibles (preserva la seleccion actual del operador)
+            PopulateSourceDrives();
 
-            // Source drive (default C:)
-            _sourceDrive = "C:";
-            if (Directory.Exists("C:\\"))
+            // Carpeta de salida: solo autodefectamos si el operador no eligio una a mano
+            if (string.IsNullOrEmpty(_outputFolder) || !_outputFolderManual)
             {
-                lblDetSource.Text = "Disco fuente: C:\\ (default, OK)";
+                SetOutputFolder(DetectDefaultOutputFolder(), false);
             }
             else
             {
-                lblDetSource.Text = "Disco fuente: C:\\ NO EXISTE";
-                _sourceDrive = null;
+                _suppressTextChanged = true;
+                try { txtOutputFolder.Text = _outputFolder; }
+                finally { _suppressTextChanged = false; }
+                lblDetOutputInfo.Text = "(seleccionada manualmente)";
             }
 
             // RAM
             _totalRamBytes = DetectTotalRam();
             lblDetRam.Text = "RAM fisica: " + HashUtil.FormatBytes(_totalRamBytes);
 
-            // Free space
-            if (_outputDrive != null)
+            UpdateFreeSpaceInfo();
+            UpdatePanelInfos();
+            UpdateNextEnabled();
+
+            var canProceed = !string.IsNullOrEmpty(_cdRomDrive)
+                          && !string.IsNullOrEmpty(_outputFolder)
+                          && !string.IsNullOrEmpty(_sourceDrive);
+            Log("[+] Deteccion completa: " + (canProceed ? "OK para proceder" : "FALTAN elementos"));
+        }
+
+        /// <summary>
+        /// Llena el ComboBox con los discos fijos y removibles del equipo.
+        /// Mantiene C: como default y respeta la seleccion previa del operador.
+        /// </summary>
+        private void PopulateSourceDrives()
+        {
+            var previous = _sourceDrive;
+            cmbSourceDrive.Items.Clear();
+
+            foreach (var d in DriveInfo.GetDrives())
             {
+                if (d.DriveType != DriveType.Fixed && d.DriveType != DriveType.Removable) continue;
+                string volLabel;
+                bool ready;
+                try { volLabel = d.VolumeLabel; ready = d.IsReady; }
+                catch { volLabel = ""; ready = false; }
+
+                var root = d.Name.TrimEnd('\\');
+                var desc = root + "\\";
+                if (!string.IsNullOrEmpty(volLabel)) desc += "  [" + volLabel + "]";
+                desc += "  " + d.DriveType;
+                if (!ready) desc += " (no listo)";
+                cmbSourceDrive.Items.Add(new DriveChoice(root, desc));
+            }
+
+            // Default: C: si existe, si no el primer disco fijo
+            var target = previous;
+            if (string.IsNullOrEmpty(target) || !Directory.Exists(target + "\\"))
+            {
+                target = Directory.Exists("C:\\") ? "C:" : null;
+                foreach (DriveChoice dc in cmbSourceDrive.Items)
+                {
+                    if (target == null) { target = dc.Root; break; }
+                }
+            }
+            if (target == null)
+            {
+                _sourceDrive = null;
+                cmbSourceDrive.SelectedIndex = -1;
+                return;
+            }
+
+            _sourceDrive = target;
+            for (int i = 0; i < cmbSourceDrive.Items.Count; i++)
+            {
+                var dc = cmbSourceDrive.Items[i] as DriveChoice;
+                if (dc != null && string.Equals(dc.Root, target, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmbSourceDrive.SelectedIndex = i;
+                    return;
+                }
+            }
+            cmbSourceDrive.SelectedIndex = -1;
+        }
+
+        /// <summary>
+        /// Carpeta de salida por defecto. Prioridad:
+        ///   1) Disco con label DFIR_OUTPUT (compatibilidad con el flujo anterior)
+        ///   2) Primer disco removible (USB) -> &lt;usb&gt;\DFIR-OUTPUT
+        ///   3) Fallback C:\DFIR-OUTPUT
+        /// Siempre sobreescribible con el boton Browse.
+        /// </summary>
+        private string DetectDefaultOutputFolder()
+        {
+            var byLabel = FindDriveByLabel("DFIR_OUTPUT");
+            if (!string.IsNullOrEmpty(byLabel))
+                return Path.Combine(byLabel, "DFIR-OUTPUT");
+
+            foreach (var d in DriveInfo.GetDrives())
+            {
+                if (d.DriveType != DriveType.Removable) continue;
                 try
                 {
-                    _freeSpaceBytes = new DriveInfo(_outputDrive).AvailableFreeSpace;
-                    lblDetFree.Text = "Espacio libre en " + _outputDrive + ": " + HashUtil.FormatBytes(_freeSpaceBytes);
+                    if (d.IsReady) return Path.Combine(d.Name.TrimEnd('\\'), "DFIR-OUTPUT");
                 }
-                catch (Exception ex)
+                catch { }
+            }
+
+            return @"C:\DFIR-OUTPUT";
+        }
+
+        private void BtnBrowseOutput_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new FolderBrowserDialog())
+            {
+                dlg.Description = "Seleccionar la carpeta donde se guardara la evidencia";
+                dlg.ShowNewFolderButton = true;
+                if (!string.IsNullOrEmpty(_outputFolder) && Directory.Exists(_outputFolder))
+                    dlg.SelectedPath = _outputFolder;
+
+                if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
-                    lblDetFree.Text = "Espacio libre: error - " + ex.Message;
+                    SetOutputFolder(dlg.SelectedPath, true);
+                    Log("[+] Carpeta de salida: " + _outputFolder);
                 }
+            }
+        }
+
+        private void TxtOutputFolder_TextChanged(object sender, EventArgs e)
+        {
+            if (_suppressTextChanged) return;
+            var t = txtOutputFolder.Text.Trim();
+            if (!string.IsNullOrEmpty(t) &&
+                !string.Equals(t, _outputFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                SetOutputFolder(t, true);
+            }
+        }
+
+        private void SetOutputFolder(string path, bool manual)
+        {
+            _outputFolder = path;
+            _outputFolderManual = manual;
+
+            _suppressTextChanged = true;
+            try { txtOutputFolder.Text = path ?? ""; }
+            finally { _suppressTextChanged = false; }
+
+            lblDetOutputInfo.Text = manual
+                ? "(seleccionada manualmente)"
+                : "(detectada automaticamente - Browse para cambiar)";
+
+            UpdateFreeSpaceInfo();
+            UpdatePanelInfos();
+            UpdateNextEnabled();
+        }
+
+        private void UpdateFreeSpaceInfo()
+        {
+            if (string.IsNullOrEmpty(_outputFolder))
+            {
+                lblDetFree.Text = "Espacio libre: -";
+                return;
+            }
+            try
+            {
+                var root = Path.GetPathRoot(Path.GetFullPath(_outputFolder));
+                _freeSpaceBytes = new DriveInfo(root).AvailableFreeSpace;
+                lblDetFree.Text = "Espacio libre en " + root + ": " + HashUtil.FormatBytes(_freeSpaceBytes);
+            }
+            catch (Exception ex)
+            {
+                lblDetFree.Text = "Espacio libre: error - " + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// Refresca los textos de los paneles de KAPE y RAM para que reflejen
+        /// el disco de entrada y la carpeta de salida elegidos por el operador.
+        /// </summary>
+        private void UpdatePanelInfos()
+        {
+            var src = string.IsNullOrEmpty(_sourceDrive) ? "(sin elegir)" : _sourceDrive + "\\";
+            var dst = string.IsNullOrEmpty(_outputFolder) ? "(sin elegir)" : _outputFolder;
+
+            lblKapeInfo.Text = "KAPE 1.3.0.2 con el set de targets del bundle (targets-full.txt).\n" +
+                               "Stage: copia kape.exe + Targets/ a la carpeta de salida (disco writable).\n" +
+                               "Entrada: " + src + "   ->   Salida: " + dst + "\\<HOSTNAME>-KAPE-<timestamp>.zip";
+
+            lblRamInfo.Text = "winpmem_mini_x64_rc2.exe (Velocidex WinPmem v4.0.rc1).\n" +
+                              "Salida: " + dst + "\\RAM-<HOSTNAME>-<timestamp>.raw\n" +
+                              "Tiempo estimado: 5-30 min dependiendo de la RAM fisica.\n" +
+                              "Este paso es opt-in (checkbox en la pantalla de Bienvenida, default OFF).\n" +
+                              "Podes volver a Bienvenida con < Back para activar/desactivar la captura.";
+        }
+
+        /// <summary>
+        /// Habilita Next solo si los parametros de entrada/salida son validos
+        /// (en el paso 2 de Deteccion).
+        /// </summary>
+        private void UpdateNextEnabled()
+        {
+            if (_currentStep == 1)
+            {
+                var inputsOk = !string.IsNullOrEmpty(_cdRomDrive)
+                            && !string.IsNullOrEmpty(_outputFolder)
+                            && !string.IsNullOrEmpty(_sourceDrive);
+                btnNext.Enabled = inputsOk;
             }
             else
             {
-                lblDetFree.Text = "Espacio libre: -";
+                btnNext.Enabled = _currentStep < 4;
             }
-
-            // Enable Next if everything detected
-            var canProceed = !string.IsNullOrEmpty(_cdRomDrive)
-                          && !string.IsNullOrEmpty(_outputDrive)
-                          && !string.IsNullOrEmpty(_sourceDrive);
-            btnNext.Enabled = canProceed || _currentStep != 1; // always enabled except first
-            Log("[+] Deteccion completa: " + (canProceed ? "OK para proceder" : "FALTAN elementos"));
         }
 
         private string FindCdRomWithKape()
@@ -624,8 +852,8 @@ namespace DfirTriageUi
             };
             lblStep.Text = titles[n];
             btnBack.Enabled = (n > 0);
-            btnNext.Enabled = (n < 4);
             btnNext.Text = (n == 4) ? "Done" : "Next >";
+            UpdateNextEnabled();
 
             if (n == 4)
             {
@@ -637,9 +865,10 @@ namespace DfirTriageUi
 
         private async void BtnRunKape_Click(object sender, EventArgs e)
         {
-            if (_cdRomDrive == null || _outputDrive == null)
+            if (_cdRomDrive == null || string.IsNullOrEmpty(_outputFolder) || string.IsNullOrEmpty(_sourceDrive))
             {
-                MessageBox.Show("CD-ROM o disco de salida no detectados. Volve a 'Deteccion' y reintentá.",
+                MessageBox.Show("CD-ROM no detectado, o falta elegir disco de entrada o carpeta de salida.\n" +
+                                "Volve a 'Deteccion' y completalos.",
                     "CYBOLT_DFIR_TRIAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -654,7 +883,7 @@ namespace DfirTriageUi
             var runner = new KapeRunner(Log, _useCmdWrapper);
             try
             {
-                _kapeResult = await runner.RunAsync(_cdRomDrive, _outputDrive, _sourceDrive, _cts.Token);
+                _kapeResult = await runner.RunAsync(_cdRomDrive, _outputFolder, _sourceDrive, _cts.Token);
                 lblKapeResult.Text = "ZIP: " + _kapeResult.ZipPath + "\n" +
                                     "Tamano: " + HashUtil.FormatBytes(_kapeResult.ZipSize) + "\n" +
                                     "SHA-256: " + _kapeResult.Sha256 + "\n" +
@@ -665,7 +894,8 @@ namespace DfirTriageUi
             catch (OperationCanceledException)
             {
                 lblKapeStatus.Text = "Estado: CANCELADO";
-                lblKapeResult.Text = "KapeTriage cancelado por el usuario. Outputs parciales quedan en E:\\DFIR-OUTPUT\\.";
+                lblKapeResult.Text = "KapeTriage cancelado por el usuario. Outputs parciales quedan en " +
+                                     _outputFolder + "\\.";
             }
             catch (Exception ex)
             {
@@ -688,9 +918,10 @@ namespace DfirTriageUi
 
         private async void BtnRunRam_Click(object sender, EventArgs e)
         {
-            if (_cdRomDrive == null || _outputDrive == null)
+            if (_cdRomDrive == null || string.IsNullOrEmpty(_outputFolder))
             {
-                MessageBox.Show("CD-ROM o disco de salida no detectados.",
+                MessageBox.Show("CD-ROM no detectado o falta elegir la carpeta de salida.\n" +
+                                "Volve a 'Deteccion' y completalos.",
                     "CYBOLT_DFIR_TRIAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -705,7 +936,7 @@ namespace DfirTriageUi
             var runner = new RamRunner(Log, _useCmdWrapper);
             try
             {
-                _ramResult = await runner.RunAsync(_cdRomDrive, _outputDrive, _cts.Token);
+                _ramResult = await runner.RunAsync(_cdRomDrive, _outputFolder, _cts.Token);
                 lblRamResult.Text = "RAW: " + _ramResult.RawPath + "\n" +
                                     "Tamano: " + HashUtil.FormatBytes(_ramResult.RawSize) + "\n" +
                                     "SHA-256: " + _ramResult.Sha256 + "\n" +
@@ -717,7 +948,8 @@ namespace DfirTriageUi
             catch (OperationCanceledException)
             {
                 lblRamStatus.Text = "Estado: CANCELADO";
-                lblRamResult.Text = "RAM cancelado. .raw parcial queda en E:\\DFIR-OUTPUT\\ (borrar si no sirve).";
+                lblRamResult.Text = "RAM cancelado. .raw parcial queda en " + _outputFolder +
+                                    "\\ (borrar si no sirve).";
             }
             catch (Exception ex)
             {
@@ -749,8 +981,8 @@ namespace DfirTriageUi
             sb.AppendLine("OS:       " + Environment.OSVersion.VersionString);
             sb.AppendLine();
             sb.AppendLine("CD-ROM:   " + _cdRomDrive);
-            sb.AppendLine("Output:   " + _outputDrive + " (label DFIR_OUTPUT)");
-            sb.AppendLine("Source:   " + _sourceDrive);
+            sb.AppendLine("Entrada:  " + _sourceDrive + "\\");
+            sb.AppendLine("Salida:   " + _outputFolder);
             sb.AppendLine("RAM:      " + HashUtil.FormatBytes(_totalRamBytes));
             sb.AppendLine();
 
@@ -788,10 +1020,10 @@ namespace DfirTriageUi
             sb.AppendLine();
 
             sb.AppendLine("--- Proximos pasos ---");
-            sb.AppendLine("1. Apagar la VM (Shutdown limpio).");
-            sb.AppendLine("2. En VMware/vSphere: detach DFIR-OUTPUT.vmdk de la VM objetivo.");
-            sb.AppendLine("3. Attach el VMDK a una VM con internet.");
-            sb.AppendLine("4. Correr DFIR_UPLOADER_UI.exe en esa VM para subir la evidencia");
+            sb.AppendLine("1. Apagar el equipo (Shutdown limpio) sin desconectar el medio de salida.");
+            sb.AppendLine("2. Retirar el medio con la evidencia: " + _outputFolder);
+            sb.AppendLine("3. Conectarlo a un equipo con red para la subida.");
+            sb.AppendLine("4. Correr DFIR_UPLOADER_UI.exe ahi para subir la evidencia");
             sb.AppendLine("   a S3/FTP/SFTP/SMB segun el config que te paso el operador.");
             sb.AppendLine();
             sb.AppendLine("Log completo: ver textbox de abajo o click Close y abrir el");
