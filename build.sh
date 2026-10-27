@@ -89,6 +89,12 @@ if [ -d staging/kape ]; then
     done
     rmdir staging/kape
 fi
+# El kape.zip oficial de Kroll (1.3.0.2) viene con logs de consola de la
+# maquina del autor (7x *_ConsoleLog.txt) y su 20251125014524_kape.cli con
+# paths locales. No son parte del producto: dentro de un bundle DFIR
+# confunden al analista (parecen evidencia). Se eliminan de la raiz.
+rm -f staging/*_ConsoleLog.txt staging/*.kape.cli
+echo "    staging/ limpio de artefactos upstream"
 
 # 3) Verificar/descargar winpmem
 echo ">>> [3/3] Verificando winpmem..."

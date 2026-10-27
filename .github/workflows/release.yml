@@ -84,6 +84,10 @@ jobs:
           cp -a /tmp/kape-src/kape/Targets staging/
           cp -a /tmp/kape-src/kape/Modules staging/
           cp -a /tmp/kape-src/kape/Documentation staging/
+          # El kape.zip oficial trae logs de la maquina del autor de KAPE y
+          # su kape.cli con paths locales. No son producto: en un bundle
+          # DFIR parecen evidencia.
+          rm -f staging/*_ConsoleLog.txt staging/*.kape.cli
           ls -la staging/kape.exe staging/Targets | head -5
 
       - name: Descargar winpmem
