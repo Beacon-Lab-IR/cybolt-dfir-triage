@@ -2,25 +2,29 @@
 # build.sh - Compila el wizard de Triage y genera CyboltDFIR-Triage-v<VERSION>.zip
 #
 # Uso:
-#   ./build.sh                    # usa version leida de VERSION.txt
-#   ./build.sh 5.3.1              # fuerza version
+#   ./build.sh                    # usa version leida de VERSION.txt (header)
+#   ./build.sh 0.3.2              # fuerza version
 #
 # Output:
 #   dist/CyboltDFIR-Triage-v<VERSION>.zip
 #
+# Una sola version: la del header de VERSION.txt / tag git / AssemblyVersion.
+# AppInfo.cs debe coincidir (Major.Minor.Build).
+#
 # Este proyecto es self-contained: compila su propio binario, baja sus propios
-# modulos (kape.zip), y arma el bundle. Para el ISO que contiene los 3
-# proyectos, ver Beacon-Lab-IR/cybolt-dfir-iso.
+# modulos (kape.zip), y arma el bundle. Para el ISO que contiene Triage +
+# Uploader, ver Beacon-Lab-IR/cybolt-dfir-iso.
 
 set -euo pipefail
 
 if [ $# -eq 1 ]; then
     VERSION="$1"
 else
-    VERSION=$(grep -oE 'v5\.[0-9]+\.[0-9]+' VERSION.txt | head -1 | sed 's/^v//')
+    # Primer vX.Y.Z del archivo = header (no el changelog historico 5.x)
+    VERSION=$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' VERSION.txt | head -1 | sed 's/^v//')
     if [ -z "$VERSION" ]; then
         echo "ERROR: no se pudo detectar la version de VERSION.txt"
-        echo "Pasala como argumento: $0 5.3.1"
+        echo "Pasala como argumento: $0 0.3.2"
         exit 1
     fi
 fi

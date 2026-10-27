@@ -63,7 +63,7 @@ namespace DfirTriageUi
 
         public DfirTriageMain()
         {
-            Text = "CYBOLT DFIR Triage Wizard v5.5.1 - By Cybolt";
+            Text = "CYBOLT DFIR Triage Wizard v" + AppVersion.Current + " - By Cybolt";
             Width = 960;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -176,7 +176,7 @@ namespace DfirTriageUi
             Controls.Add(txtLog);
             y += txtLog.Height + 4;
 
-            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.5.1 - By Cybolt, MIT License";
+            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v" + AppVersion.Current + " - By Cybolt, MIT License";
             lblFooter.Location = new Point(12, y);
             lblFooter.AutoSize = true;
             lblFooter.ForeColor = Color.Gray;
@@ -472,7 +472,7 @@ namespace DfirTriageUi
 
         private void OnLoad()
         {
-            Log("[+] CYBOLT_DFIR_TRIAGE v5.5.1 iniciado");
+            Log("[+] CYBOLT_DFIR_TRIAGE v" + AppVersion.Current + " iniciado");
             Log("[+] Hostname: " + Environment.MachineName + " | OS: " + Environment.OSVersion.VersionString);
             DetectEnv();
         }

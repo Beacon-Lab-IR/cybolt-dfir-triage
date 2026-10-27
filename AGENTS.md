@@ -56,28 +56,29 @@ No dejar en `dist/` artefactos del monorepo viejo (`CyboltDFIR-ISO-*.iso`,
 
 ---
 
-## 3. Versionado — el esquema es confuso, leelo
+## 3. Versionado — una sola versión
 
-Hay **dos** números de versión y no coinciden. No es un error:
+Tag git = nombre del ZIP = `AssemblyVersion` = título/footer de la UI.
 
-| Número | Dónde vive | Ejemplo | Significado |
-|---|---|---|---|
-| **Version de release** | tag de git + nombre del asset | `v0.2.0` | La unidad de distribución. Es lo que descarga el operador. |
-| **Version de assembly** | `DfirTriageUi/AppInfo.cs` + titulo/footer de la UI | `5.5.0` | Heredada de la era del monorepo ISO. Cambia con cada feature. |
+| Dónde | Ejemplo |
+|---|---|
+| tag / GitHub Release | `v0.3.2` |
+| asset | `CyboltDFIR-Triage-v0.3.2.zip` |
+| `DfirTriageUi/AppInfo.cs` | `AssemblyVersion("0.3.2.0")` |
+| UI (`AppVersion.Current`) | `0.3.2` |
+| header de `VERSION.txt` | `CYBOLT-DFIR-TRIAGE-v0.3.2.zip - Version 0.3.2` |
 
-El `VERSION.txt` dentro del bundle lleva el número de **assembly** (5.x), no el
-de release. El build lo escribe desde la raíz.
-
-**Regla:** un feature → bumpear assembly a `5.(minor+1).0`. El release lo
-publica el operador con `./build.sh <0.x.0>`.
+**Regla:** un cambio publicable → bumpear `0.(minor+1).0` (feature) o
+`0.x.(patch+1)` (fix). Actualizá **AppInfo.cs** y el **header de VERSION.txt**
+juntos. El changelog histórico puede seguir mencionando `v5.x` (era monorepo).
 
 ---
 
 ## 4. Build
 
 ```bash
-./build.sh              # usa la version de VERSION.txt (grep v5.x.y)
-./build.sh 0.2.0        # fuerza la version de release
+./build.sh              # usa la version del header de VERSION.txt
+./build.sh 0.3.2        # fuerza la version
 # -> dist/CyboltDFIR-Triage-v<VER>.zip
 ```
 
@@ -107,7 +108,7 @@ del árbol de KAPE, y borra los artefactos upstream que trae el zip oficial.
 ## 5. Release
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.2 && git push origin v0.3.2
 ```
 
 Dispara `.github/workflows/release.yml` (ubuntu-latest, .NET 8), que reconstruye

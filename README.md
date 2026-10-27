@@ -27,8 +27,8 @@ writable y se ejecuta en el equipo objetivo.
 ## Quickstart
 
 ```bash
-./build.sh              # usa la version de VERSION.txt
-./build.sh 0.3.1        # fuerza la version de release
+./build.sh              # usa la version del header de VERSION.txt
+./build.sh 0.3.2        # fuerza la version
 
 # Output: dist/CyboltDFIR-Triage-v<VERSION>.zip
 ```

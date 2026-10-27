@@ -5,8 +5,8 @@ using System.Windows.Forms;
 namespace DfirTriageUi
 {
     /// <summary>
-    /// CYBOLT_DFIR_TRIAGE v5.5.1 - Wizard consolidado KapeTriage + RAM Capture (opt-in).
-    /// By Cybolt, MIT License.
+    /// CYBOLT_DFIR_TRIAGE - Wizard consolidado KapeTriage + RAM Capture (opt-in).
+    /// Version: ver AppInfo / AppVersion.Current. By Cybolt, MIT License.
     ///
     /// Modo CLI (no GUI) para testing: --test-targets &lt;bundleDir&gt;
     ///   - Lee bundleDir/targets-full.txt, filtra contra Targets/*.tkape,
@@ -35,7 +35,7 @@ namespace DfirTriageUi
             {
                 MessageBox.Show(
                     "Error fatal en CYBOLT_DFIR_TRIAGE:\n\n" + ex.Message + "\n\n" + ex.StackTrace,
-                    "CYBOLT_DFIR_TRIAGE v5.5.1",
+                    "CYBOLT_DFIR_TRIAGE v" + AppVersion.Current,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }

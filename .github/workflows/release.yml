@@ -193,20 +193,21 @@ jobs:
           Bundle de adquisicion DFIR para Windows: KAPE 1.3.0.2 + captura de
           RAM opt-in, en un solo paquete, con el wizard parametrizable.
 
-          ### Novedades v0.3.1 (assembly 5.5.1)
+          ### Novedades v0.3.2
 
-          - **Fix: deteccion del bundle.** Busca \`kape.exe\` en la carpeta del
-            \`.exe\` (ZIP descomprimido). Antes solo miraba la raiz de un
-            disco/CD-ROM → "kape.exe NO" y Next bloqueado. Label: *Bundle
-            (kape.exe)* (ya no CD-ROM/ISO).
-          - **UX:** el ComboBox de entrada ya no muestra "Fixed"/"Removable".
+          - **Una sola version.** Tag = ZIP = AssemblyVersion = UI
+            (\`AppVersion.Current\`). Se abandona el esquema dual 0.x / 5.x.
+          - Incluye los fixes de v0.3.1: deteccion del bundle junto al \`.exe\`
+            (ya no exige CD-ROM/ISO) y ComboBox sin label Fixed/Removable.
 
-          ### Novedades v0.3.0 (assembly 5.5.0)
+          ### Novedades v0.3.1
 
-          - **Salida libre.** El check inicial ya no busca un disco con label
-            \`DFIR_OUTPUT\`. Default sugerido: primer USB → \`C:\\DFIR-OUTPUT\`.
-            Cualquier carpeta writable vale (Browse / TextBox; Browse crea
-            carpeta si no existe).
+          - **Fix: deteccion del bundle** en la carpeta del \`.exe\`.
+          - **UX:** ComboBox de entrada sin "Fixed"/"Removable".
+
+          ### Novedades v0.3.0
+
+          - **Salida libre.** Sin busqueda por label \`DFIR_OUTPUT\`.
           - **Docs:** mockups del flujo de 5 pasos en el README.
 
           ### Novedades v0.2.0

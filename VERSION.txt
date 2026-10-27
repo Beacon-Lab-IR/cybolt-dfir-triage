@@ -1,19 +1,23 @@
-CYBOLT-DFIR-TRIAGE-v5.5.1.zip - Version 5.5.1
+CYBOLT-DFIR-TRIAGE-v0.3.2.zip - Version 0.3.2
 
 Build       : 2026-10-27
 Plataforma  : Windows (.NET Framework 4.5.2+)
 KAPE        : 1.3.0.2 (Kroll Cyber)
 
 Cambios en esta version:
-  - (v5.5.1) FIX: el bundle se detecta en la carpeta del .exe (ZIP
+  - (v0.3.2) CHORE: una sola version. Tag = ZIP = AssemblyVersion = UI.
+                  Se abandona el esquema dual release 0.x / assembly 5.x.
+                  AppVersion.Current lee el assembly; build.sh parsea
+                  vX.Y.Z del header de este archivo.
+  - (v0.3.1) FIX: el bundle se detecta en la carpeta del .exe (ZIP
                   descomprimido). Antes solo buscaba kape.exe en la raiz de
                   un disco/CD-ROM → "kape.exe NO" y Next bloqueado aunque
                   kape.exe estuviera al lado del wizard. Label: "Bundle
                   (kape.exe)" (ya no "CD-ROM (ISO)").
-  - (v5.5.1) UX: el ComboBox de disco de entrada ya no muestra "Fixed"/
+  - (v0.3.1) UX: el ComboBox de disco de entrada ya no muestra "Fixed"/
                   "Removable" (jargon de DriveType). Solo letra + label del
                   volumen. Sigue listando discos fijos y USB conectados.
-  - (v5.5.0) UX: el check inicial ya NO busca un disco con label DFIR_OUTPUT.
+  - (v0.3.0) UX: el check inicial ya NO busca un disco con label DFIR_OUTPUT.
                   La carpeta de salida puede ser cualquiera (USB, particion,
                   carpeta nueva via Browse). Default sugerido:
                     1) <primer disco removible>\DFIR-OUTPUT

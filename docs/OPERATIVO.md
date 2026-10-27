@@ -14,7 +14,7 @@ Adquisición de evidencia DFIR en equipos Windows comprometidos
 ## 0. Versión del paquete
 
 ```
-CYBOLT-DFIR-TRIAGE v0.2.0  (assembly 5.4.0)
+CYBOLT-DFIR-TRIAGE v0.3.2
 ```
 
 | Componente | Qué es |
