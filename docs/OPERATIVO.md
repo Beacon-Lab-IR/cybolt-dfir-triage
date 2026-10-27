@@ -164,16 +164,16 @@ Acá se define **qué se adquisición** y **dónde se deja**:
 | **Disco de entrada (input)** | Volumen del que KAPE copia (`--tsource`) | `C:` |
 | **Carpeta de salida (output)** | Carpeta donde se escribe ZIP, `.raw` y staging | autodetectada |
 
-**Carpeta de salida** — el default busca, en orden:
+**Carpeta de salida** — el default sugerido es, en orden:
 
-1. un disco con label `DFIR_OUTPUT` → `<disco>\DFIR-OUTPUT`
-2. el primer disco removible (USB) → `<usb>\DFIR-OUTPUT`
-3. `C:\DFIR-OUTPUT`
+1. el primer disco removible (USB) → `<usb>\DFIR-OUTPUT`
+2. `C:\DFIR-OUTPUT`
 
-Si ninguno es el que querés, click **Browse…** y elegí la carpeta (o escribila
-a mano en el TextBox). **Importante:** la carpeta tiene que estar en un medio
-**distinto** al del sistema, o la evidencia se mezcla con el disco en
-adquisición.
+No se exige un disco con un label particular: cualquier carpeta writable
+sirve. Si el default no es el que querés, click **Browse…** (podés crear una
+carpeta nueva) o escribila a mano en el TextBox. **Importante:** la carpeta
+tiene que estar en un medio **distinto** al del sistema, o la evidencia se
+mezcla con el disco en adquisición.
 
 El resto del panel muestra CD-ROM detectado, RAM física y espacio libre de la
 carpeta de salida. **Next** queda bloqueado si falta algo.
@@ -266,7 +266,7 @@ registro de la cadena de custodia.
 | Exit code != 0 en winpmem | Comportamiento conocido de WinPmem | **No es error** si el `.raw` mide ≥ 95% de la RAM. El wizard ya lo trata como éxito |
 | Spam "Unable to update Console Title" | Runtime .NET sin consola válida | Marcá el checkbox *cmd.exe wrapper* en el paso 1 |
 | Next bloqueado en el paso 2 | Falta CD-ROM, disco de entrada o carpeta de salida | Completalos. El CD-ROM se detecta por `kape.exe` en la raíz del medio |
-| La carpeta de salida se detecta mal | No hay disco con label `DFIR_OUTPUT` ni USB conectado | Usá **Browse…** |
+| La carpeta de salida no es la deseada | Default apunta al primer USB o a `C:\DFIR-OUTPUT` | Usá **Browse…** o escribí la ruta a mano |
 | El ZIP tarda mucho | Disco grande o `--vss` procesando shadow copies | Normal. 10–40 min. No lo mates |
 | Espacio insuficiente | La RAM no entra en el medio de salida | Usá un medio más grande o desactivá la captura de RAM |
 | KAPE ignora targets | Un target del `.txt` no existe en el bundle | Es esperado: el filtro los skipea y lo reporta en el log. No es error |

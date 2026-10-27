@@ -7,11 +7,28 @@ writable y se ejecuta en el equipo objetivo.
 - **Procedimiento operativo:** [`docs/OPERATIVO.md`](docs/OPERATIVO.md)
 - **Guía para agentes / development:** [`AGENTS.md`](AGENTS.md)
 
+## Flujo del wizard
+
+![Flujo de los 5 pasos del wizard](docs/img/wizard-pasos.png)
+
+| Paso | Panel | Qué hace |
+|---|---|---|
+| 1 | Bienvenida | RAM opt-in (default OFF), cmd wrapper |
+| 2 | Detección | Disco de entrada + carpeta de salida (Browse / crear carpeta) |
+| 3 | KapeTriage | Stage + KAPE `--vss` → ZIP |
+| 4 | RAM Capture | winpmem → `.raw` (se omite si paso 1 OFF) |
+| 5 | Resumen | Paths + SHA-256 |
+
+![Paso 2 — detección de entrada/salida](docs/img/wizard-paso2.png)
+
+> Mockups de documentación (fieles al layout WinForms). No son captura E2E
+> en Windows — el drill real sigue pendiente.
+
 ## Quickstart
 
 ```bash
 ./build.sh              # usa la version de VERSION.txt
-./build.sh 0.2.0        # fuerza la version de release
+./build.sh 0.3.0        # fuerza la version de release
 
 # Output: dist/CyboltDFIR-Triage-v<VERSION>.zip
 ```
@@ -33,8 +50,9 @@ El operador descomprime el bundle en un medio writable (USB o disco) y ejecuta
 1. **Bienvenida** — opciones: capturar RAM (opt-in, default OFF), cmd wrapper
 2. **Parámetros** — elegís el **disco de entrada** (ComboBox con los discos
    fijos y removibles; default `C:`) y la **carpeta de salida** (TextBox +
-   `Browse…`). Default autodetectado: disco con label `DFIR_OUTPUT` → primer
-   disco removible → `C:\DFIR-OUTPUT`. Todo lo que produce el wizard (staging,
+   `Browse…`). Default sugerido: primer disco removible → `C:\DFIR-OUTPUT`
+   (cualquier carpeta writable vale; no se exige un label de volumen). Todo
+   lo que produce el wizard (staging,
    ZIP, `.raw`, resumen) queda en esa carpeta.
 3. **KapeTriage** — stagea `kape.exe` + `Targets/` a la carpeta de salida y
    corre KAPE con `--vss` (incluye Volume Shadow Copies)

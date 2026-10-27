@@ -25,7 +25,7 @@ Este repo es **self-contained**: produce un único bundle, `CyboltDFIR-Triage-v<
 
 ---
 
-## 2. Mapa del repo (16 archivos trackeados)
+## 2. Mapa del repo
 
 ```
 .github/workflows/release.yml   Pipeline: tag v* -> build bundle -> GitHub Release
@@ -39,6 +39,9 @@ DfirTriageUi/                   Wizard WinForms .NET Framework 4.5.2 (x64)
 ├── KapeRunner.cs               Orquestacion KAPE
 ├── RamRunner.cs                Orquestacion winpmem
 └── DfirTriageMain.cs           Form, 5 paneles, navegacion, parametros
+docs/
+├── OPERATIVO.md                Procedimiento operativo
+└── img/                        Mockups del wizard para el README
 LICENSE                         MIT, "Copyright (c) 2026 Cybolt"
 README.md                       Quickstart y uso
 VERSION.txt                     Changelog del bundle (fuente del build)
@@ -47,7 +50,9 @@ targets-full.txt                Lista de KAPE targets (filtrado defensivo)
 ```
 
 **No trackeados (gitignored):** `staging/` (scratch de build), `dist/`
-(bundle final), `kape.zip` (fuente de `Targets/` y `Modules/`).
+(bundle final), `kape.zip` (fuente de `Targets/` y `Modules/`), `*.iso`.
+No dejar en `dist/` artefactos del monorepo viejo (`CyboltDFIR-ISO-*.iso`,
+`CyboltDFIR-Uploader-*.zip`) — viven en los repos hermanos.
 
 ---
 
@@ -58,7 +63,7 @@ Hay **dos** números de versión y no coinciden. No es un error:
 | Número | Dónde vive | Ejemplo | Significado |
 |---|---|---|---|
 | **Version de release** | tag de git + nombre del asset | `v0.2.0` | La unidad de distribución. Es lo que descarga el operador. |
-| **Version de assembly** | `DfirTriageUi/AppInfo.cs` + titulo/footer de la UI | `5.4.0` | Heredada de la era del monorepo ISO. Cambia con cada feature. |
+| **Version de assembly** | `DfirTriageUi/AppInfo.cs` + titulo/footer de la UI | `5.5.0` | Heredada de la era del monorepo ISO. Cambia con cada feature. |
 
 El `VERSION.txt` dentro del bundle lleva el número de **assembly** (5.x), no el
 de release. El build lo escribe desde la raíz.
@@ -147,9 +152,10 @@ RamRunner.RunAsync(cdRomDrive, outputFolder, ct)
 ```
 
 Default de la carpeta de salida (`DetectDefaultOutputFolder`):
-1. `<disco con label DFIR_OUTPUT>\DFIR-OUTPUT`
-2. `<primer disco removible>\DFIR-OUTPUT`
-3. `C:\DFIR-OUTPUT`
+1. `<primer disco removible>\DFIR-OUTPUT`
+2. `C:\DFIR-OUTPUT`
+
+No busca volumes por label: cualquier carpeta writable sirve (Browse / TextBox).
 
 "Re-detectar" **no** pisa la carpeta que el operador eligió a mano.
 

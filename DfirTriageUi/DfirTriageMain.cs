@@ -61,7 +61,7 @@ namespace DfirTriageUi
 
         public DfirTriageMain()
         {
-            Text = "CYBOLT DFIR Triage Wizard v5.4.0 - By Cybolt";
+            Text = "CYBOLT DFIR Triage Wizard v5.5.0 - By Cybolt";
             Width = 960;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -174,7 +174,7 @@ namespace DfirTriageUi
             Controls.Add(txtLog);
             y += txtLog.Height + 4;
 
-            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.4.0 - By Cybolt, MIT License";
+            lblFooter.Text = "CYBOLT_DFIR_TRIAGE.exe v5.5.0 - By Cybolt, MIT License";
             lblFooter.Location = new Point(12, y);
             lblFooter.AutoSize = true;
             lblFooter.ForeColor = Color.Gray;
@@ -470,7 +470,7 @@ namespace DfirTriageUi
 
         private void OnLoad()
         {
-            Log("[+] CYBOLT_DFIR_TRIAGE v5.4.0 iniciado");
+            Log("[+] CYBOLT_DFIR_TRIAGE v5.5.0 iniciado");
             Log("[+] Hostname: " + Environment.MachineName + " | OS: " + Environment.OSVersion.VersionString);
             DetectEnv();
         }
@@ -609,17 +609,13 @@ namespace DfirTriageUi
 
         /// <summary>
         /// Carpeta de salida por defecto. Prioridad:
-        ///   1) Disco con label DFIR_OUTPUT (compatibilidad con el flujo anterior)
-        ///   2) Primer disco removible (USB) -> &lt;usb&gt;\DFIR-OUTPUT
-        ///   3) Fallback C:\DFIR-OUTPUT
-        /// Siempre sobreescribible con el boton Browse.
+        ///   1) Primer disco removible (USB) -> &lt;usb&gt;\DFIR-OUTPUT
+        ///   2) Fallback C:\DFIR-OUTPUT
+        /// No busca volumes por label: cualquier carpeta writable sirve.
+        /// Siempre sobreescribible con el boton Browse o escribiendo a mano.
         /// </summary>
         private string DetectDefaultOutputFolder()
         {
-            var byLabel = FindDriveByLabel("DFIR_OUTPUT");
-            if (!string.IsNullOrEmpty(byLabel))
-                return Path.Combine(byLabel, "DFIR-OUTPUT");
-
             foreach (var d in DriveInfo.GetDrives())
             {
                 if (d.DriveType != DriveType.Removable) continue;
@@ -752,22 +748,6 @@ namespace DfirTriageUi
                 {
                     var kapePath = Path.Combine(d.Name, "kape.exe");
                     if (File.Exists(kapePath)) return d.Name.TrimEnd('\\');
-                }
-                catch { }
-            }
-            return null;
-        }
-
-        private string FindDriveByLabel(string label)
-        {
-            foreach (var d in DriveInfo.GetDrives())
-            {
-                try
-                {
-                    if (d.IsReady && string.Equals(d.VolumeLabel, label, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return d.Name.TrimEnd('\\');
-                    }
                 }
                 catch { }
             }

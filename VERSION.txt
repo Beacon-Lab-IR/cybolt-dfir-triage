@@ -1,10 +1,15 @@
-CYBOLT-DFIR-TRIAGE-v5.4.0.iso - Version 5.4.0
+CYBOLT-DFIR-TRIAGE-v5.5.0.zip - Version 5.5.0
 
-Build       : 2026-10-26
+Build       : 2026-10-27
 Plataforma  : Windows (.NET Framework 4.5.2+)
 KAPE        : 1.3.0.2 (Kroll Cyber)
 
 Cambios en esta version:
+  - (v5.5.0) UX: el check inicial ya NO busca un disco con label DFIR_OUTPUT.
+                  La carpeta de salida puede ser cualquiera (USB, particion,
+                  carpeta nueva via Browse). Default sugerido:
+                    1) <primer disco removible>\DFIR-OUTPUT
+                    2) C:\DFIR-OUTPUT
   - (v5.4.0) UX: wizard parametrizable. El paso 2 (Deteccion) ahora deja
                   elegir los dos parametros de la adquisicion:
                     * Disco de ENTRADA: ComboBox con todos los discos fijos y

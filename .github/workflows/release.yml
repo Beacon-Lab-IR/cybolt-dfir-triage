@@ -193,24 +193,23 @@ jobs:
           Bundle de adquisicion DFIR para Windows: KAPE 1.3.0.2 + captura de
           RAM opt-in, en un solo paquete, con el wizard parametrizable.
 
+          ### Novedades v0.3.0 (assembly 5.5.0)
+
+          - **Salida libre.** El check inicial ya no busca un disco con label
+            \`DFIR_OUTPUT\`. Default sugerido: primer USB → \`C:\\DFIR-OUTPUT\`.
+            Cualquier carpeta writable vale (Browse / TextBox; Browse crea
+            carpeta si no existe).
+          - **Docs:** mockups del flujo de 5 pasos en el README.
+
           ### Novedades v0.2.0
 
-          - **Wizard parametrizable.** El paso 2 (Deteccion) ahora deja elegir
-            el **disco de entrada** (ComboBox con los discos fijos y removibles,
-            default \`C:\`) y la **carpeta de salida** (TextBox + *Browse…*).
-            Antes la entrada estaba hardcodeada a \`C:\` y la salida exigia un
-            disco con label \`DFIR_OUTPUT\`, escribiendo en su raiz.
-          - **Fix: \`--vss\` restaurado.** Se habia perdido al extraer el runner
-            del KapeUi legacy. Sin el se pierden los event logs bloqueados
-            (Application.evtx, Defender, Security.evtx locked).
-          - **Fix: deteccion del ZIP.** El wizard buscaba el ZIP en la carpeta
-            *padre* de la salida; KAPE lo escribe dentro de \`--tdest\`. Ahora
-            se busca donde corresponde, con fallback.
-          - **Fix: quoting de rutas.** Rutas con espacios (\`E:\\Mi Evidencia\`)
-            rompian el parseo de args de KAPE.
-          - **Fix: bundle limpio.** Se eliminan del bundle los logs de consola
-            y el \`kape.cli\` que el zip oficial de KAPE trae de la maquina de
-            su autor.
+          - **Wizard parametrizable.** Paso 2: disco de entrada (ComboBox,
+            default \`C:\`) + carpeta de salida (TextBox + *Browse…*).
+          - **Fix: \`--vss\` restaurado.** Sin el se pierden event logs bloqueados
+            y estado historico de VSS.
+          - **Fix: deteccion del ZIP** dentro de \`--tdest\` (no en el padre).
+          - **Fix: quoting de rutas** con espacios.
+          - **Fix: bundle limpio** (sin ConsoleLog / kape.cli upstream).
 
           ### Casos de uso
 
