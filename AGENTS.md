@@ -62,11 +62,11 @@ Tag git = nombre del ZIP = `AssemblyVersion` = título/footer de la UI.
 
 | Dónde | Ejemplo |
 |---|---|
-| tag / GitHub Release | `v0.3.2` |
-| asset | `CyboltDFIR-Triage-v0.3.2.zip` |
-| `DfirTriageUi/AppInfo.cs` | `AssemblyVersion("0.3.2.0")` |
-| UI (`AppVersion.Current`) | `0.3.2` |
-| header de `VERSION.txt` | `CYBOLT-DFIR-TRIAGE-v0.3.2.zip - Version 0.3.2` |
+| tag / GitHub Release | `v0.4.0` |
+| asset | `CyboltDFIR-Triage-v0.4.0.zip` |
+| `DfirTriageUi/AppInfo.cs` | `AssemblyVersion("0.4.0.0")` |
+| UI (`AppVersion.Current`) | `0.4.0` |
+| header de `VERSION.txt` | `CYBOLT-DFIR-TRIAGE-v0.4.0.zip - Version 0.4.0` |
 
 **Regla:** un cambio publicable → bumpear `0.(minor+1).0` (feature) o
 `0.x.(patch+1)` (fix). Actualizá **AppInfo.cs** y el **header de VERSION.txt**
@@ -78,7 +78,7 @@ juntos. El changelog histórico puede seguir mencionando `v5.x` (era monorepo).
 
 ```bash
 ./build.sh              # usa la version del header de VERSION.txt
-./build.sh 0.3.2        # fuerza la version
+./build.sh 0.4.0        # fuerza la version
 # -> dist/CyboltDFIR-Triage-v<VER>.zip
 ```
 
@@ -108,7 +108,7 @@ del árbol de KAPE, y borra los artefactos upstream que trae el zip oficial.
 ## 5. Release
 
 ```bash
-git tag v0.3.2 && git push origin v0.3.2
+git tag v0.4.0 && git push origin v0.4.0
 ```
 
 Dispara `.github/workflows/release.yml` (ubuntu-latest, .NET 8), que reconstruye
@@ -131,7 +131,7 @@ Crear el release a mano con `gh release create` **no** dispara el workflow
 |---|---|---|
 | 1 | Welcome | checkboxes: **capturar RAM** (opt-in, default OFF), **cmd wrapper** (default OFF) |
 | 2 | Detect | **disco de entrada** (ComboBox), **carpeta de salida** (TextBox + Browse), bundle (`kape.exe` junto al .exe), RAM, espacio libre |
-| 3 | Kape | botón ▶ Ejecutar → `KapeRunner.RunAsync` |
+| 3 | Kape | link **comando** (args editables) + ▶ Ejecutar → `KapeRunner.RunAsync` |
 | 4 | RAM | botón ▶ Ejecutar → `RamRunner.RunAsync` (se salta si el checkbox está OFF) |
 | 5 | Summary | paths + SHA-256 de cada output + próximos pasos |
 

@@ -14,7 +14,7 @@ Adquisición de evidencia DFIR en equipos Windows comprometidos
 ## 0. Versión del paquete
 
 ```
-CYBOLT-DFIR-TRIAGE v0.3.2
+CYBOLT-DFIR-TRIAGE v0.4.0
 ```
 
 | Componente | Qué es |
@@ -180,6 +180,11 @@ RAM física y espacio libre de la carpeta de salida. **Next** queda bloqueado
 si falta el bundle, el disco de entrada o la carpeta de salida.
 
 ### Paso 3 — KapeTriage
+
+Opcional: click en el link **comando ▸** para ver/editar los args de KAPE
+(default = set full de `targets-full.txt` + `--vss`, con paths reales).
+**Reset** vuelve al default. Si el panel está abierto, ▶ Ejecutar usa lo
+editado; si está cerrado, el default full.
 
 Click **▶ Ejecutar KapeTriage**. Dura entre 10 y 40 minutos según el disco.
 

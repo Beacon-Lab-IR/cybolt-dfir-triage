@@ -348,6 +348,12 @@ namespace DfirTriageUi
 
         // === Kape panel ===
         private Label lblKapeInfo = new Label();
+        private LinkLabel lnkKapeCmd = new LinkLabel();
+        private Button btnKapeCmdReset = new Button();
+        private TextBox txtKapeArgs = new TextBox();
+        private bool _kapeCmdExpanded = false;
+        private bool _kapeArgsTouched = false;
+        private bool _suppressKapeArgsChanged = false;
         private Button btnRunKape = new Button();
         private ProgressBar pbKape = new ProgressBar();
         private Label lblKapeStatus = new Label();
@@ -365,33 +371,113 @@ namespace DfirTriageUi
             pnlKape.Controls.Add(lblTitle);
 
             lblKapeInfo.Location = new Point(12, 36);
-            lblKapeInfo.Size = new Size(880, 60);
+            lblKapeInfo.Size = new Size(880, 48);
             lblKapeInfo.Text = "KAPE 1.3.0.2 con el set de targets del bundle (targets-full.txt).\n" +
                               "Stage: copia kape.exe + Targets/ a la carpeta de salida (disco writable).\n" +
                               "Entrada: (definiendo en Deteccion)   ->   Salida: (definiendo en Deteccion)";
             pnlKape.Controls.Add(lblKapeInfo);
 
+            lnkKapeCmd.Text = "comando ▸";
+            lnkKapeCmd.Location = new Point(12, 90);
+            lnkKapeCmd.AutoSize = true;
+            lnkKapeCmd.LinkClicked += LnkKapeCmd_LinkClicked;
+            pnlKape.Controls.Add(lnkKapeCmd);
+
+            btnKapeCmdReset.Text = "Reset";
+            btnKapeCmdReset.Location = new Point(100, 86);
+            btnKapeCmdReset.Width = 60;
+            btnKapeCmdReset.Height = 24;
+            btnKapeCmdReset.Visible = false;
+            btnKapeCmdReset.Click += BtnKapeCmdReset_Click;
+            pnlKape.Controls.Add(btnKapeCmdReset);
+
+            txtKapeArgs.Location = new Point(12, 114);
+            txtKapeArgs.Size = new Size(880, 72);
+            txtKapeArgs.Multiline = true;
+            txtKapeArgs.ScrollBars = ScrollBars.Vertical;
+            txtKapeArgs.Font = new Font("Consolas", 8F);
+            txtKapeArgs.Visible = false;
+            txtKapeArgs.WordWrap = true;
+            txtKapeArgs.TextChanged += (s, e) =>
+            {
+                if (!_suppressKapeArgsChanged) _kapeArgsTouched = true;
+            };
+            pnlKape.Controls.Add(txtKapeArgs);
+
+            LayoutKapeRunControls();
+
             btnRunKape.Text = "▶ Ejecutar KapeTriage";
-            btnRunKape.Location = new Point(12, 110);
             btnRunKape.Width = 200;
             btnRunKape.Click += BtnRunKape_Click;
             pnlKape.Controls.Add(btnRunKape);
 
-            pbKape.Location = new Point(12, 142);
             pbKape.Width = 880;
             pbKape.Height = 22;
             pnlKape.Controls.Add(pbKape);
 
-            lblKapeStatus.Location = new Point(12, 168);
             lblKapeStatus.AutoSize = true;
             lblKapeStatus.Text = "Estado: -";
             pnlKape.Controls.Add(lblKapeStatus);
 
-            lblKapeResult.Location = new Point(12, 195);
             lblKapeResult.AutoSize = true;
             lblKapeResult.Text = "";
             lblKapeResult.Font = new Font("Consolas", 8F);
             pnlKape.Controls.Add(lblKapeResult);
+        }
+
+        private void LayoutKapeRunControls()
+        {
+            int y = _kapeCmdExpanded ? 194 : 118;
+            btnRunKape.Location = new Point(12, y);
+            pbKape.Location = new Point(12, y + 32);
+            lblKapeStatus.Location = new Point(12, y + 58);
+            lblKapeResult.Location = new Point(12, y + 85);
+        }
+
+        private void LnkKapeCmd_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            _kapeCmdExpanded = !_kapeCmdExpanded;
+            lnkKapeCmd.Text = _kapeCmdExpanded ? "comando ▾" : "comando ▸";
+            txtKapeArgs.Visible = _kapeCmdExpanded;
+            btnKapeCmdReset.Visible = _kapeCmdExpanded;
+            if (_kapeCmdExpanded && (!_kapeArgsTouched || string.IsNullOrWhiteSpace(txtKapeArgs.Text)))
+                RefreshKapeArgsPreview(force: true);
+            LayoutKapeRunControls();
+        }
+
+        private void BtnKapeCmdReset_Click(object sender, EventArgs e)
+        {
+            RefreshKapeArgsPreview(force: true);
+        }
+
+        /// <summary>
+        /// Regenera el string de args full (targets-full.txt) con paths del paso 2.
+        /// </summary>
+        private void RefreshKapeArgsPreview(bool force)
+        {
+            if (_bundleRoot == null || string.IsNullOrEmpty(_outputFolder) || string.IsNullOrEmpty(_sourceDrive))
+            {
+                txtKapeArgs.Text = "(faltan bundle / entrada / salida — volve a Deteccion)";
+                _kapeArgsTouched = false;
+                return;
+            }
+            if (!force && _kapeArgsTouched) return;
+            try
+            {
+                var runner = new KapeRunner(Log, _useCmdWrapper);
+                var prepared = runner.BuildDefaultArgs(_bundleRoot, _outputFolder, _sourceDrive);
+                _suppressKapeArgsChanged = true;
+                try { txtKapeArgs.Text = prepared.Args; }
+                finally { _suppressKapeArgsChanged = false; }
+                _kapeArgsTouched = false;
+            }
+            catch (Exception ex)
+            {
+                _suppressKapeArgsChanged = true;
+                try { txtKapeArgs.Text = "(error armando args: " + ex.Message + ")"; }
+                finally { _suppressKapeArgsChanged = false; }
+                _kapeArgsTouched = false;
+            }
         }
 
         // === RAM panel ===
@@ -847,6 +933,10 @@ namespace DfirTriageUi
             btnNext.Text = (n == 4) ? "Done" : "Next >";
             UpdateNextEnabled();
 
+            if (n == 2 && _kapeCmdExpanded)
+            {
+                RefreshKapeArgsPreview(force: false);
+            }
             if (n == 4)
             {
                 BuildSummary();
@@ -872,10 +962,18 @@ namespace DfirTriageUi
             pbKape.Style = ProgressBarStyle.Marquee;
             lblKapeStatus.Text = "Estado: corriendo KapeTriage...";
 
+            // Override solo si el panel "comando" esta expandido y hay texto.
+            string argsOverride = null;
+            if (_kapeCmdExpanded && !string.IsNullOrWhiteSpace(txtKapeArgs.Text) &&
+                !txtKapeArgs.Text.StartsWith("(faltan") && !txtKapeArgs.Text.StartsWith("(error"))
+            {
+                argsOverride = txtKapeArgs.Text.Trim();
+            }
+
             var runner = new KapeRunner(Log, _useCmdWrapper);
             try
             {
-                _kapeResult = await runner.RunAsync(_bundleRoot, _outputFolder, _sourceDrive, _cts.Token);
+                _kapeResult = await runner.RunAsync(_bundleRoot, _outputFolder, _sourceDrive, _cts.Token, argsOverride);
                 lblKapeResult.Text = "ZIP: " + _kapeResult.ZipPath + "\n" +
                                     "Tamano: " + HashUtil.FormatBytes(_kapeResult.ZipSize) + "\n" +
                                     "SHA-256: " + _kapeResult.Sha256 + "\n" +

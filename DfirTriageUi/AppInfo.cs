@@ -13,9 +13,9 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 [assembly: Guid("a1c2e3f4-5b6c-7d8e-9f0a-1b2c3d4e5f6a")]
 
-// Una sola version: la misma del tag git / ZIP / UI (ej. 0.3.2).
-[assembly: AssemblyVersion("0.3.2.0")]
-[assembly: AssemblyFileVersion("0.3.2.0")]
+// Una sola version: la misma del tag git / ZIP / UI (ej. 0.4.0).
+[assembly: AssemblyVersion("0.4.0.0")]
+[assembly: AssemblyFileVersion("0.4.0.0")]
 
 namespace DfirTriageUi
 {

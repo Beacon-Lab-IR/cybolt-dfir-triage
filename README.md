@@ -15,7 +15,7 @@ writable y se ejecuta en el equipo objetivo.
 |---|---|---|
 | 1 | Bienvenida | RAM opt-in (default OFF), cmd wrapper |
 | 2 | Detección | Disco de entrada + carpeta de salida (Browse / crear carpeta) |
-| 3 | KapeTriage | Stage + KAPE `--vss` → ZIP |
+| 3 | KapeTriage | Stage + KAPE `--vss` → ZIP; link **comando** para ver/editar args |
 | 4 | RAM Capture | winpmem → `.raw` (se omite si paso 1 OFF) |
 | 5 | Resumen | Paths + SHA-256 |
 
@@ -28,7 +28,7 @@ writable y se ejecuta en el equipo objetivo.
 
 ```bash
 ./build.sh              # usa la version del header de VERSION.txt
-./build.sh 0.3.2        # fuerza la version
+./build.sh 0.4.0        # fuerza la version
 
 # Output: dist/CyboltDFIR-Triage-v<VERSION>.zip
 ```

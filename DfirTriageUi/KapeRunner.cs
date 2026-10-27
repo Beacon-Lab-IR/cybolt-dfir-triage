@@ -138,49 +138,31 @@ namespace DfirTriageUi
         }
 
         /// <summary>
-        /// Corre KapeTriage (o set de targets). Devuelve Result con path del ZIP + SHA-256.
-        /// Lanza KapeException si falla.
+        /// Args default full (targets-full.txt filtrado) + paths de corrida.
+        /// No stagea; sirve para preview en la UI y para RunAsync.
         /// </summary>
-        public async Task<Result> RunAsync(
-            string bundleRoot,     // carpeta del bundle (junto al .exe, o raiz de medio)
-            string outputFolder,   // ej "E:\DFIR-OUTPUT" (carpeta completa elegida por el operador)
-            string sourceDrive,    // ej "C:"
-            CancellationToken ct)
+        public class DefaultArgs
         {
-            var sw = Stopwatch.StartNew();
+            public string Args { get; set; }
+            public string StageDir { get; set; }
+            public string OutBase { get; set; }
+            public string OutZipName { get; set; }
+            public string TargetsDst { get; set; }
+            public int TargetCount { get; set; }
+        }
+
+        /// <summary>
+        /// Arma el comando full DFIR (targets-full.txt + --vss + paths reales).
+        /// </summary>
+        public DefaultArgs BuildDefaultArgs(string bundleRoot, string outputFolder, string sourceDrive)
+        {
             var host = Environment.MachineName;
             var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
             var outBase = Path.Combine(outputFolder, host + "-" + stamp);
             var outZipName = host + "-KAPE-" + stamp;
             var stageDir = Path.Combine(outputFolder, "_kape_stage");
-
-            // La carpeta de salida tiene que existir y ser escribible.
-            try
-            {
-                if (!Directory.Exists(outputFolder))
-                    Directory.CreateDirectory(outputFolder);
-            }
-            catch (Exception ex)
-            {
-                throw new KapeException("No se pudo crear la carpeta de salida '" + outputFolder + "': " + ex.Message, -1);
-            }
-
-            // 1. Stage kape.exe from bundle to output folder (bundle puede ser read-only)
-            var stageKape = Path.Combine(stageDir, "kape.exe");
-            await StageFileAsync(Path.Combine(bundleRoot, "kape.exe"), stageKape, ct);
-
-            // 2. Stage Targets/ tree
-            var targetsSrc = Path.Combine(bundleRoot, "Targets");
             var targetsDst = Path.Combine(stageDir, "Targets");
-            await StageDirectoryAsync(targetsSrc, targetsDst, ct);
 
-            // 3. Build args
-            // Removed --sync (per bug). Without --sync, KAPE doesn't try to download.
-            // Removed --moduledir and --mdest (per bug - apuntaban a medio read-only).
-            //
-            // Cargar targets-full.txt del bundle y aplicar filtro defensivo.
-            // KapeRunner.LoadAndFilterTargets chequea que cada target del .txt exista
-            // como .tkape en el bundle, y descarta los que no (skipped list).
             var bundleDir = bundleRoot.TrimEnd('\\') + "\\";
             var filterResult = LoadAndFilterTargets(bundleDir);
 
@@ -196,12 +178,8 @@ namespace DfirTriageUi
 
             var targetsJoined = string.Join(",", filterResult.Existing);
 
-            // Todas las rutas van entrecomilladas: la carpeta de salida la elige
-            // el operador y puede contener espacios ("E:\Mi Evidencia"), lo que
-            // romperia el parseo de args de KAPE si no se cita.
-            // Sin barra final dentro de las comillas: en Windows el parser de
-            // linea de comandos trata la barra antes del cierre como escape
-            // de la comilla ("C:\" -> C:"). KAPE acepta los paths sin barra final.
+            // Rutas entrecomilladas, sin barra final (pitfall CommandLineToArgvW).
+            // Sin --sync / --moduledir / --mdest (bugs KAPE 1.3.0.2).
             var args = "--tsource " + Quote(sourceDrive) +
                        " --target " + Quote(targetsJoined) +
                        " --tdest " + Quote(outBase) +
@@ -209,18 +187,69 @@ namespace DfirTriageUi
                        " --zip " + Quote(outBase + "\\" + outZipName) +
                        " --hv nc,vm" +
                        " --gui" +
-                       // --vss: procesa los Volume Shadow Copies del volumen fuente.
-                       // Sin esto se pierden event logs locked (Application.evtx, Defender,
-                       // Security.evtx bloqueado) y el estado historico del disco.
                        " --vss";
+
+            return new DefaultArgs
+            {
+                Args = args,
+                StageDir = stageDir,
+                OutBase = outBase,
+                OutZipName = outZipName,
+                TargetsDst = targetsDst,
+                TargetCount = filterResult.Existing.Count
+            };
+        }
+
+        /// <summary>
+        /// Corre KapeTriage. Si argsOverride no es null/vacio, usa ese string
+        /// (tras stage); si no, arma el default full.
+        /// </summary>
+        public async Task<Result> RunAsync(
+            string bundleRoot,
+            string outputFolder,
+            string sourceDrive,
+            CancellationToken ct,
+            string argsOverride = null)
+        {
+            var sw = Stopwatch.StartNew();
+
+            try
+            {
+                if (!Directory.Exists(outputFolder))
+                    Directory.CreateDirectory(outputFolder);
+            }
+            catch (Exception ex)
+            {
+                throw new KapeException("No se pudo crear la carpeta de salida '" + outputFolder + "': " + ex.Message, -1);
+            }
+
+            var prepared = BuildDefaultArgs(bundleRoot, outputFolder, sourceDrive);
+            var stageDir = prepared.StageDir;
+            var outBase = prepared.OutBase;
+            var outZipName = prepared.OutZipName;
+
+            // 1. Stage kape.exe + Targets/ (bundle puede ser read-only)
+            var stageKape = Path.Combine(stageDir, "kape.exe");
+            await StageFileAsync(Path.Combine(bundleRoot, "kape.exe"), stageKape, ct);
+            await StageDirectoryAsync(Path.Combine(bundleRoot, "Targets"), prepared.TargetsDst, ct);
+
+            var useOverride = !string.IsNullOrWhiteSpace(argsOverride);
+            var args = useOverride ? argsOverride.Trim() : prepared.Args;
+            if (useOverride)
+            {
+                _log("[+] Usando args editados por el operador");
+                var tdest = TryGetFlagValue(args, "--tdest");
+                var zipBase = TryGetFlagValue(args, "--zip");
+                if (!string.IsNullOrEmpty(tdest)) outBase = tdest.TrimEnd('\\');
+                if (!string.IsNullOrEmpty(zipBase))
+                    outZipName = Path.GetFileName(zipBase.TrimEnd('\\'));
+            }
             _log("[+] KAPE args: kape.exe " + args);
 
-            // 4. Launch
+            // 2. Launch
             Process proc = null;
             if (_useCmdWrapper)
             {
-                // Wrapper: cmd /c start "" /B /WAIT kape.exe [args]
-                // Esto le da a KAPE una consola real, Console.Title funciona.
                 var wrapperArgs = "/c start \"\" /B /WAIT \"kape.exe\" " + args;
                 _log("[+] cmd /c start ... kape.exe (wrapper mode)");
                 var psi = new ProcessStartInfo("cmd.exe", wrapperArgs)
@@ -251,13 +280,11 @@ namespace DfirTriageUi
             // CRITICAL: close stdin immediately so KAPE's Console.ReadKey() returns -1
             proc.StandardInput.Close();
 
-            // Stream output
             proc.OutputDataReceived += (s, e) => { if (e.Data != null) _log("[KAPE] " + e.Data); };
             proc.ErrorDataReceived += (s, e) => { if (e.Data != null) _log("[KAPE-err] " + e.Data); };
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
 
-            // Wait
             while (!proc.HasExited)
             {
                 if (ct.IsCancellationRequested)
@@ -271,14 +298,12 @@ namespace DfirTriageUi
             var exit = proc.ExitCode;
             sw.Stop();
 
-            // 5. Find the generated ZIP (KAPE writes inside --tdest with timestamp prefix)
             var zipPath = FindLatestZip(outBase, outZipName);
             if (zipPath == null)
             {
                 throw new KapeException("KAPE no genero ZIP. Exit code: " + exit, exit);
             }
 
-            // 6. SHA-256
             _log("[+] KAPE ZIP: " + zipPath);
             var zipSize = new FileInfo(zipPath).Length;
             _log("[+] SHA-256 calculando (" + HashUtil.FormatBytes(zipSize) + ")...");
@@ -296,10 +321,28 @@ namespace DfirTriageUi
         }
 
         /// <summary>
-        /// Entrecomilla un valor para la linea de comandos de KAPE.
-        /// Escapa las comillas dobles internas duplicandolas (regla de escape
-        /// de CommandLineToArgvW / NDesk.Options).
+        /// Extrae el valor de un flag (--tdest "path" o --tdest path) del string de args.
         /// </summary>
+        internal static string TryGetFlagValue(string args, string flag)
+        {
+            if (string.IsNullOrEmpty(args) || string.IsNullOrEmpty(flag)) return null;
+            var idx = args.IndexOf(flag, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return null;
+            var i = idx + flag.Length;
+            while (i < args.Length && char.IsWhiteSpace(args[i])) i++;
+            if (i >= args.Length) return null;
+            if (args[i] == '"')
+            {
+                i++;
+                var end = args.IndexOf('"', i);
+                if (end < 0) return args.Substring(i);
+                return args.Substring(i, end - i);
+            }
+            var j = i;
+            while (j < args.Length && !char.IsWhiteSpace(args[j])) j++;
+            return args.Substring(i, j - i);
+        }
+
         private static string Quote(string value)
         {
             if (value == null) return "\"\"";

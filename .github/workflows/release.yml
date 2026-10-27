@@ -193,6 +193,12 @@ jobs:
           Bundle de adquisicion DFIR para Windows: KAPE 1.3.0.2 + captura de
           RAM opt-in, en un solo paquete, con el wizard parametrizable.
 
+          ### Novedades v0.4.0
+
+          - **Link \`comando\` en paso 3.** Despliega los args KAPE (editable)
+            con el set full de \`targets-full.txt\` + \`--vss\`. Reset vuelve
+            al default. Si el panel esta abierto, ▶ Ejecutar usa lo editado.
+
           ### Novedades v0.3.2
 
           - **Una sola version.** Tag = ZIP = AssemblyVersion = UI
