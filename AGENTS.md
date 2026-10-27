@@ -79,6 +79,11 @@ publica el operador con `./build.sh <0.x.0>`.
 Requisitos: **.NET SDK 8** (busca `dotnet` en el PATH, fallback `~/.dotnet/dotnet`),
 `kape.zip` en la raíz (SHA-256 verificado por el script), `unzip`, `zip`.
 
+> **Fuente de `kape.zip`:** mirror propio en
+> `https://github.com/Beacon-Lab-IR/armeria/raw/refs/heads/main/KAPE/kape.zip`.
+> El release oficial de `EricZimmerman/KAPE` **no expone el asset** (404) —
+> el repo no es público. No volver a poner la URL de EricZimmerman.
+
 `build.sh` es **re-ejecutable**: hace `rm -rf` del destino antes de cada `mv`
 del árbol de KAPE, y borra los artefactos upstream que trae el zip oficial.
 

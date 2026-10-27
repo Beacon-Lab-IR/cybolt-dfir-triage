@@ -80,7 +80,9 @@ KAPE_ZIP="kape.zip"
 KAPE_SHA_EXPECTED="92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892"
 if [ ! -f "$KAPE_ZIP" ]; then
     echo "    Descargando kape.zip..."
-    curl -fsSL -o "$KAPE_ZIP" "https://github.com/EricZimmerman/KAPE/releases/download/v1.3.0.2/kape.zip"
+    # Mirror propio de KAPE 1.3.0.2. El release oficial de
+    # EricZimmerman/KAPE no expone el asset (404).
+    curl -fsSL -o "$KAPE_ZIP" "https://github.com/Beacon-Lab-IR/armeria/raw/refs/heads/main/KAPE/kape.zip"
 fi
 ACTUAL_SHA=$( (sha256sum "$KAPE_ZIP" 2>/dev/null || shasum -a 256 "$KAPE_ZIP") | awk '{print $1}')
 if [ "$ACTUAL_SHA" != "$KAPE_SHA_EXPECTED" ]; then

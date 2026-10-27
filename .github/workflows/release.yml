@@ -23,7 +23,10 @@ permissions:
   contents: write
 
 env:
-  KAPE_ZIP_URL: https://github.com/EricZimmerman/KAPE/releases/download/v1.3.0.2/kape.zip
+  # Mirror propio de KAPE 1.3.0.2. El release oficial de EricZimmerman/KAPE
+  # no expone el asset (404), asi que el proyecto lo sirve desde armeria.
+  # El SHA-256 de abajo es el del zip verificado (92b687b7...).
+  KAPE_ZIP_URL: https://github.com/Beacon-Lab-IR/armeria/raw/refs/heads/main/KAPE/kape.zip
   KAPE_ZIP_SHA256: 92b687b765d384f6b238c344bed239f2eaebc8a1fb16185b969d80cac71bf892
   WINPMEM_URL: https://github.com/Velocidex/WinPmem/releases/download/v4.0.rc1/winpmem_mini_x64_rc2.exe
   WINPMEM_SHA256: a4d516b6fcaf3b5b1d4ee709ce86f8eabf1d8028b3a83101479b7568b933d21b
