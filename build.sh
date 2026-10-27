@@ -58,7 +58,19 @@ fi
 
 # 1) Compilar la GUI
 echo ">>> [1/3] Compilando CYBOLT_DFIR_TRIAGE..."
-/Users/rbnetto/.dotnet/dotnet build DfirTriageUi/DfirTriageUi.csproj -c Release --nologo 2>&1 | tail -5
+# dotnet: primero del PATH, si no un install conocido como fallback.
+# (El path hardcodeado solo rompia en la maquina de otro developer y en CI.)
+if command -v dotnet >/dev/null 2>&1; then
+    DOTNET=dotnet
+elif [ -x "$HOME/.dotnet/dotnet" ]; then
+    DOTNET="$HOME/.dotnet/dotnet"
+else
+    echo "ERROR: no se encontro 'dotnet' en el PATH ni en ~/.dotnet/dotnet"
+    echo "Instalar .NET SDK 8: https://dotnet.microsoft.com/download/dotnet/8.0"
+    exit 1
+fi
+echo "    usando: $($DOTNET --version) ($DOTNET)"
+$DOTNET build DfirTriageUi/DfirTriageUi.csproj -c Release --nologo 2>&1 | tail -5
 mkdir -p staging
 cp DfirTriageUi/bin/Release/CYBOLT_DFIR_TRIAGE.exe staging/
 
@@ -124,6 +136,10 @@ cp LICENSE staging/
 [ -f SHA256SUMS.txt ] && cp SHA256SUMS.txt staging/
 [ -f KAPE_TRIAGE_UI.exe.config ] && cp KAPE_TRIAGE_UI.exe.config staging/
 [ -f targets-full.txt ] && cp targets-full.txt staging/
+# El procedimiento operativo va dentro del bundle: el operador lo necesita
+# en mano junto al .exe, no en el repo.
+mkdir -p staging/docs
+[ -f docs/OPERATIVO.md ] && cp docs/OPERATIVO.md staging/docs/
 
 # 5) Empaquetar ZIP
 echo ">>> Empaquetando ZIP..."

@@ -1,41 +1,45 @@
 # CyboltDFIR Triage
 
-Wizard de adquisición forense para Windows. KAPE 1.3.0.2 + RAM capture
-opt-in + uploader integrado, en un solo bundle.
+Wizard de adquisición forense para Windows. KAPE 1.3.0.2 + captura de RAM
+opt-in, empaquetado como un bundle ZIP que se descomprime en un medio
+writable y se ejecuta en el equipo objetivo.
+
+- **Procedimiento operativo:** [`docs/OPERATIVO.md`](docs/OPERATIVO.md)
+- **Guía para agentes / development:** [`AGENTS.md`](AGENTS.md)
 
 ## Quickstart
 
 ```bash
-./build.sh                  # build v0.1.0 (default)
-./build.sh 6.0.0            # build con version especifica
+./build.sh              # usa la version de VERSION.txt
+./build.sh 0.2.0        # fuerza la version de release
 
 # Output: dist/CyboltDFIR-Triage-v<VERSION>.zip
 ```
 
+Requiere .NET SDK 8. El script verifica `kape.zip` y `winpmem` por SHA-256.
+
 ## Componentes
 
-- `DfirTriageUi/` — C# WinForms wizard (CYBOLT_DFIR_TRIAGE.exe)
-- `kape.zip` — fuente de Targets/ y Modules/ (verificado por SHA-256)
-- `targets-full.txt` — lista de targets a procesar (filtrado defensivo)
-- `Tools/Memory/winpmem_mini_x64_rc2.exe` — RAM capture
-- `VERSION.txt` — version del bundle
+- `DfirTriageUi/` — C# WinForms wizard (`CYBOLT_DFIR_TRIAGE.exe`), .NET Framework 4.5.2
+- `targets-full.txt` — lista de KAPE targets a adquirir (filtrado defensivo)
+- `kape.zip` — fuente de `Targets/` y `Modules/` (verificado por SHA-256, no trackeado)
+- `VERSION.txt` — changelog del bundle
 
 ## Uso
 
-El operador conecta el bundle a una VM/host Windows (USB, CD-ROM) y
-ejecuta `CYBOLT_DFIR_TRIAGE.exe`. El wizard:
+El operador descomprime el bundle en un medio writable (USB o disco) y ejecuta
+`CYBOLT_DFIR_TRIAGE.exe` en el equipo objetivo. El wizard:
 
-1. Bienvenida — opciones (captura RAM opt-in, cmd wrapper)
-2. **Parametros de entrada/salida** — elegís el **disco de entrada**
-   (ComboBox con los discos fijos y removibles; default `C:`) y la
-   **carpeta de salida** (TextBox + `Browse…`). La carpeta se autodetecta
-   (label `DFIR_OUTPUT` → USB removible → `C:\DFIR-OUTPUT`) pero siempre
-   podés cambiarla. Todo lo que produce el wizard (staging, ZIP, `.raw`,
-   resumen) queda en esa carpeta.
-3. KapeTriage — stagea `kape.exe` + `Targets/` a la carpeta de salida y
-   corre KAPE con `--vss` (incluye Shadow Copies)
-4. RAM Capture (opt-in, default OFF)
-5. Resumen final con SHA-256 de cada output
+1. **Bienvenida** — opciones: capturar RAM (opt-in, default OFF), cmd wrapper
+2. **Parámetros** — elegís el **disco de entrada** (ComboBox con los discos
+   fijos y removibles; default `C:`) y la **carpeta de salida** (TextBox +
+   `Browse…`). Default autodetectado: disco con label `DFIR_OUTPUT` → primer
+   disco removible → `C:\DFIR-OUTPUT`. Todo lo que produce el wizard (staging,
+   ZIP, `.raw`, resumen) queda en esa carpeta.
+3. **KapeTriage** — stagea `kape.exe` + `Targets/` a la carpeta de salida y
+   corre KAPE con `--vss` (incluye Volume Shadow Copies)
+4. **RAM Capture** — solo si la marcaste en el paso 1 (default OFF)
+5. **Resumen** — paths y SHA-256 de cada output
 
 ### Parámetros
 
@@ -46,23 +50,25 @@ ejecuta `CYBOLT_DFIR_TRIAGE.exe`. El wizard:
 | Captura RAM | Paso 1, checkbox | OFF | Opt-in |
 | cmd wrapper | Paso 1, checkbox | OFF | Para servers con spam de Console Title |
 
-El `Browse…` es un `FolderBrowserDialog` nativo: deja navegar, crear
-carpeta nueva (`ShowNewFolderButton`) y escribir la ruta a mano. El
-`Re-detectar` del paso 2 respeta la carpeta elegida a mano y solo
-reevalúa CD-ROM, discos de entrada y RAM.
+El `Browse…` es un `FolderBrowserDialog` nativo: deja navegar, crear carpeta
+nueva (`ShowNewFolderButton`) y escribir la ruta a mano. `Re-detectar` respeta
+la carpeta elegida a mano y solo reevalúa CD-ROM, discos de entrada y RAM.
 
 ## Releases
 
 - [GitHub Releases](https://github.com/Beacon-Lab-IR/cybolt-dfir-triage/releases)
-- Cada release genera `CyboltDFIR-Triage-v<VERSION>.zip`
+- Cada release publica `CyboltDFIR-Triage-v<VERSION>.zip` con su SHA-256
+- El bundle se construye en CI (Linux) al pushear un tag `v*`
 
-## Variantes
+> El asset publicado por CI no es byte-idéntico al build local (distinto SDK).
+> El hash a verificar es el de las notas del release.
 
-Este proyecto es self-contained. Para el bundle completo (Triage + Uploader
-dentro de un ISO booteable), ver:
+## Ecosistema CyboltDFIR
 
-- [Beacon-Lab-IR/cybolt-dfir-iso](https://github.com/Beacon-Lab-IR/cybolt-dfir-iso)
-- [Beacon-Lab-IR/cybolt-dfir-uploader](https://github.com/Beacon-Lab-IR/cybolt-dfir-uploader)
+Este proyecto es self-contained (solo Triage). Los otros proyectos:
+
+- [Beacon-Lab-IR/cybolt-dfir-uploader](https://github.com/Beacon-Lab-IR/cybolt-dfir-uploader) — subidor standalone (S3/FTP/SFTP/SMB), con config JSON remoto
+- [Beacon-Lab-IR/cybolt-dfir-iso](https://github.com/Beacon-Lab-IR/cybolt-dfir-iso) — ISO no-booteable que combina Triage + Uploader
 
 ## Licencia
 

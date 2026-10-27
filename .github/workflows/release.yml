@@ -57,8 +57,9 @@ jobs:
 
       - name: Preparar staging
         run: |
-          mkdir -p staging/Tools/Memory
+          mkdir -p staging/Tools/Memory staging/docs
           cp README.md VERSION.txt LICENSE targets-full.txt staging/
+          cp docs/OPERATIVO.md staging/docs/
           # VERSION.txt: cabecera con la version del release + fecha de build
           {
             echo "CYBOLT-DFIR-TRIAGE-v${{ steps.get_version.outputs.VERSION }} - Version ${{ steps.get_version.outputs.VERSION }}"
@@ -115,6 +116,7 @@ jobs:
             staging/CYBOLT_DFIR_TRIAGE.exe \
             staging/kape.exe \
             staging/targets-full.txt \
+            staging/docs/OPERATIVO.md \
             staging/VERSION.txt \
             staging/LICENSE \
             staging/README.md \

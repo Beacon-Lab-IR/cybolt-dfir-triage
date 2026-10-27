@@ -1,27 +1,38 @@
 # ==============================================================================
 #  Cybolt DFIR — targets-full.txt
-#  Lista exhaustiva de KAPE targets para IR con sospecha de operador interno /
-#  retraso de software / actividad de usuario en ventana temporal acotada.
+#  Lista de KAPE targets para IR con sospecha de operador interno / retraso de
+#  software / actividad de usuario en ventana temporal acotada.
 #
 #  Compatible con: KAPE 1.3.0.2 (kape.exe) y compound KapeTriage.
 #  Tamano bundle esperado: ~5-15 GB (Tier 1+2+3), ~10-25 GB (todos los tiers).
 #
-#  USO:
-#    1. Descargá este archivo del repo (o del ISO montado como CD-ROM).
-#    2. Stage a disco writable en la victima (NO correr kape.exe desde CD-ROM):
-#         xcopy /E /I /Y D:\KAPE C:\KAPE      (ajustar letra del ISO)
-#         copy /Y targets-full.txt C:\KAPE\
-#    3. Ejecutar (CMD como Administrador):
+#  USO NORMAL: dejalo que lo haga el wizard.
+#    CYBOLT_DFIR_TRIAGE.exe lee este archivo del bundle, filtra los targets
+#    que no existen como .tkape en Targets/ (filtro defensivo) y corre KAPE
+#    con la lista resultante. No hay que hacer nada a mano.
+#
+#  USO MANUAL (solo si el wizard no aplica):
+#    1. Stage del bundle a disco writable en la victima. NO correr kape.exe
+#       desde un medio read-only: KAPE escribe Modules\bin y .kape junto al
+#       .exe y falla con UnauthorizedAccessException.
+#         xcopy /E /I /Y E:\KAPE C:\KAPE      (ajustar la letra)
+#         copy /Y C:\KAPE\targets-full.txt C:\KAPE\
+#    2. KAPE 1.3.0.2 NO acepta --targets-list (falla con "target is required").
+#       La lista se pasa como --target con los nombres separados por COMA.
+#       Ejemplo (reducido; acortalo si la linea se hace muy larga):
 #
 #         C:\KAPE\kape.exe ^
-#           --tsource C:\ ^
-#           --target KapeTriage ^
-#           --targets-list C:\KAPE\targets-full.txt ^
-#           --tdest E:\HOSTNAME-YYYYMMDD-HHMMSS\ ^
-#           --targetdir C:\KAPE\Targets ^
-#           --zip E:\HOSTNAME-YYYYMMDD-HHMMSS\HOSTNAME-KAPE-YYYYMMDD-HHMMSS ^
+#           --tsource "C:" ^
+#           --target "KapeTriage,EventLogs,RegistryHives,Prefetch" ^
+#           --tdest "E:\HOSTNAME-YYYYMMDD-HHMMSS" ^
+#           --targetdir "C:\KAPE\Targets" ^
+#           --zip "E:\HOSTNAME-YYYYMMDD-HHMMSS\HOSTNAME-KAPE-YYYYMMDD-HHMMSS" ^
 #           --hv nc,vm ^
+#           --gui ^
 #           --vss
+#
+#       IMPORTANTE: entrecomilla las rutas (pueden tener espacios) y NO les
+#       pongas barra final: "C:\" se parsea como C: con la comilla escapada.
 #
 #  ORDEN DE VOLATILIDAD (obligatorio):
 #    1. RAM primero: winpmem_mini_x64_rc2.exe E:\HOSTNAME-...\memory.raw
@@ -40,6 +51,8 @@
 #  NOTAS:
 #    - NO usar --sync (bug KAPE en proceso interpreta $Null como filename).
 #    - --vss requiere elevacion a Administrator.
+#    - El ZIP sale DENTRO de --tdest como {timestamp}_E__{basename}.zip.
+#      No esta en la carpeta padre de --tdest.
 #    - KapeTriage ya cubre BasicCollection + EventLogs + RegistryHives +
 #      Prefetch + AmCache + PowerShell + ScheduledTasks + Services + AppCompat
 #      + LNKFilesAndJumpLists + EvidenceOfExecution + $MFT + $LogFile + $UsnJrnl.
